@@ -16,9 +16,20 @@ import {
   Folder,
   Sparkles,
   Layers,
+  Globe,
+  Tag,
 } from 'lucide-react'
-import type { Paper, Project } from '../types'
-import { getPapers, getProjects, uploadPaper, deletePaper, downloadPaperFile, ApiError } from '../services/api'
+import type { Paper, Project, DiscoveredPaperItem } from '../types'
+import {
+  getPapers,
+  getProjects,
+  uploadPaper,
+  deletePaper,
+  downloadPaperFile,
+  searchDiscoveredPapers,
+  importDiscoveredPaper,
+  ApiError,
+} from '../services/api'
 
 export const PapersPage: React.FC = () => {
   const [papers, setPapers] = useState<Paper[]>([])
@@ -46,6 +57,23 @@ export const PapersPage: React.FC = () => {
 
   // Download State
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+  // Active View Tab: Library vs Discover Papers
+  const [activeTab, setActiveTab] = useState<'library' | 'discover'>('library')
+
+  // Discovery State (Module 13.5: OpenAlex)
+  const [discoveryQuery, setDiscoveryQuery] = useState('')
+  const [discoveryYear, setDiscoveryYear] = useState('')
+  const [openAccessOnly, setOpenAccessOnly] = useState(true)
+  const [discoveryProjectId, setDiscoveryProjectId] = useState<string>('')
+  const [isSearchingDiscovery, setIsSearchingDiscovery] = useState(false)
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null)
+  const [discoverySuccess, setDiscoverySuccess] = useState<string | null>(null)
+  const [discoveredPapers, setDiscoveredPapers] = useState<DiscoveredPaperItem[]>([])
+  const [totalDiscovered, setTotalDiscovered] = useState<number>(0)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [importingPaperId, setImportingPaperId] = useState<string | null>(null)
+  const [importedPaperIds, setImportedPaperIds] = useState<Set<string>>(new Set())
 
   const loadData = async () => {
     setIsLoading(true)
@@ -211,6 +239,85 @@ export const PapersPage: React.FC = () => {
     }
   }
 
+  // Handle OpenAlex paper discovery search
+  const handleDiscoverySearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!discoveryQuery.trim()) return
+
+    setIsSearchingDiscovery(true)
+    setDiscoveryError(null)
+    setDiscoverySuccess(null)
+
+    try {
+      const resp = await searchDiscoveredPapers({
+        query: discoveryQuery.trim(),
+        limit: 15,
+        openAccessOnly,
+        year: discoveryYear.trim() || undefined,
+      })
+      setDiscoveredPapers(resp.papers)
+      setTotalDiscovered(resp.total_results)
+      setHasSearched(true)
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setDiscoveryError(err.message)
+      } else {
+        setDiscoveryError('Scholarly paper discovery failed. Please try again.')
+      }
+    } finally {
+      setIsSearchingDiscovery(false)
+    }
+  }
+
+  // Handle open-access paper import into project
+  const handleImportPaper = async (paperItem: DiscoveredPaperItem) => {
+    const projId = discoveryProjectId || targetProjectId || (projects[0]?.id)
+    if (!projId) {
+      setDiscoveryError('Please select a target research project for the imported paper.')
+      return
+    }
+
+    if (!paperItem.open_access_pdf_url) {
+      setDiscoveryError('This paper does not have a legally accessible open-access PDF.')
+      return
+    }
+
+    setImportingPaperId(paperItem.paper_id)
+    setDiscoveryError(null)
+    setDiscoverySuccess(null)
+
+    try {
+      const result = await importDiscoveredPaper({
+        project_id: projId,
+        title: paperItem.title,
+        open_access_pdf_url: paperItem.open_access_pdf_url,
+        paper_id: paperItem.paper_id,
+        doi: paperItem.doi,
+        arxiv_id: paperItem.arxiv_id,
+        authors: paperItem.authors,
+        year: paperItem.year,
+        venue: paperItem.venue,
+        abstract: paperItem.abstract,
+        citation_count: paperItem.citation_count,
+        source_url: paperItem.source_url,
+        auto_extract: true,
+      })
+
+      setImportedPaperIds((prev) => new Set(prev).add(paperItem.paper_id))
+      setDiscoverySuccess(`Successfully imported "${paperItem.title}" to project "${result.project_name || 'Project'}". Text extraction has been initiated.`)
+      // Refresh library papers list so it immediately appears in the library
+      loadData()
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setDiscoveryError(err.message)
+      } else {
+        setDiscoveryError('Failed to import paper.')
+      }
+    } finally {
+      setImportingPaperId(null)
+    }
+  }
+
   return (
     <div className="p-4 sm:p-8 max-w-[1560px] mx-auto w-full space-y-6" data-testid="paper-library-container">
       {/* ==================== PAGE HEADER ==================== */}
@@ -242,7 +349,39 @@ export const PapersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ==================== 1. LIBRARY METRICS (4 CARDS) ==================== */}
+      {/* ==================== VIEW MODE TABS ==================== */}
+      <div className="flex items-center gap-1 border-b border-[#E2E8F0] pt-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('library')}
+          data-testid="tab-paper-library"
+          className={`px-4 py-2 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'library'
+              ? 'border-[#2563EB] text-[#2563EB]'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Uploaded Papers ({papers.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('discover')}
+          data-testid="tab-discover-papers"
+          className={`px-4 py-2 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'discover'
+              ? 'border-[#2563EB] text-[#2563EB]'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Globe className="w-4 h-4" />
+          <span>Discover Papers</span>
+        </button>
+      </div>
+
+      {activeTab === 'library' && (
+        <div className="space-y-6">
+          {/* ==================== 1. LIBRARY METRICS (4 CARDS) ==================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: TOTAL PAPERS */}
         <div className="bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-xs flex items-start justify-between">
@@ -594,6 +733,312 @@ export const PapersPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      </div>
+      )}
+
+      {/* ==================== DISCOVER PAPERS VIEW ==================== */}
+      {activeTab === 'discover' && (
+        <div className="space-y-6" data-testid="discover-papers-container">
+          {/* Search Header Banner */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5 space-y-4 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-blue-600" />
+                  <span>Scholarly Paper Discovery</span>
+                </h2>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Search millions of scientific papers via the OpenAlex Academic Graph and import legally accessible open-access PDFs into your project library.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500 bg-white/90 px-3 py-1 rounded-md border border-blue-200 shrink-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="font-medium text-slate-700">OpenAlex Academic Graph</span>
+              </div>
+            </div>
+
+            {/* Search Form */}
+            <form onSubmit={handleDiscoverySearch} className="space-y-3">
+              <div className="flex flex-col md:flex-row items-stretch gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={discoveryQuery}
+                    onChange={(e) => setDiscoveryQuery(e.target.value)}
+                    placeholder="Search scientific papers by topic or title (e.g. GraphRAG, Retrieval Augmented Generation)..."
+                    data-testid="discovery-search-input"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                  />
+                </div>
+
+                <div className="w-full sm:w-36">
+                  <input
+                    type="text"
+                    value={discoveryYear}
+                    onChange={(e) => setDiscoveryYear(e.target.value)}
+                    placeholder="Year (e.g. 2024)"
+                    data-testid="discovery-year-input"
+                    className="w-full px-3 py-2.5 rounded-lg border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSearchingDiscovery || !discoveryQuery.trim()}
+                  data-testid="discovery-search-button"
+                  className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 transition cursor-pointer shrink-0"
+                >
+                  {isSearchingDiscovery ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Searching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      <span>Search Papers</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Filter controls row */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-slate-600">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={openAccessOnly}
+                    onChange={(e) => setOpenAccessOnly(e.target.checked)}
+                    data-testid="discovery-oa-checkbox"
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="font-medium text-slate-800">Open Access Only (importable PDFs)</span>
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">Import Destination Project:</span>
+                  <select
+                    value={discoveryProjectId || (projects[0]?.id || '')}
+                    onChange={(e) => setDiscoveryProjectId(e.target.value)}
+                    data-testid="discovery-project-select"
+                    className="px-2.5 py-1 rounded border border-slate-300 bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        {proj.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Feedback alerts */}
+          {discoveryError && (
+            <div
+              role="alert"
+              data-testid="discovery-error-alert"
+              className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{discoveryError}</span>
+            </div>
+          )}
+
+          {discoverySuccess && (
+            <div
+              role="alert"
+              data-testid="discovery-success-alert"
+              className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5"
+            >
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+              <div className="flex-1">
+                <span>{discoverySuccess}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Results Area */}
+          {isSearchingDiscovery && (
+            <div className="py-16 text-center space-y-3" data-testid="discovery-loading-state">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700">Searching OpenAlex Academic Graph...</p>
+              <p className="text-xs text-slate-500">Querying scholarly works, citation metrics, and open-access PDF locations</p>
+            </div>
+          )}
+
+          {!isSearchingDiscovery && hasSearched && discoveredPapers.length === 0 && (
+            <div className="p-12 text-center bg-white rounded-xl border border-dashed border-slate-300 space-y-2" data-testid="discovery-empty-state">
+              <Globe className="w-8 h-8 text-slate-400 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-800">No Scientific Papers Found</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                No matching scholarly works found for "{discoveryQuery}". Try broadening your search keywords or adjusting the filters.
+              </p>
+            </div>
+          )}
+
+          {!isSearchingDiscovery && discoveredPapers.length > 0 && (
+            <div className="space-y-4" data-testid="discovery-results-container">
+              <div className="flex items-center justify-between text-xs text-slate-600 px-1">
+                <span className="font-semibold">
+                  Found {totalDiscovered.toLocaleString()} academic works for "{discoveryQuery}"
+                </span>
+                <span className="text-[11px] text-slate-500">Showing {discoveredPapers.length} results</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {discoveredPapers.map((paperItem, idx) => {
+                  const isImporting = importingPaperId === paperItem.paper_id
+                  const isImported = importedPaperIds.has(paperItem.paper_id)
+                  const hasOaPdf = Boolean(paperItem.open_access_pdf_url)
+
+                  return (
+                    <div
+                      key={paperItem.paper_id || idx}
+                      data-testid={`discovery-paper-card-${idx}`}
+                      className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 space-y-3 hover:border-blue-300 transition"
+                    >
+                      {/* Title & Badges */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 flex-1">
+                          <h3 className="text-base font-bold text-[#0F172A] leading-snug">
+                            {paperItem.title}
+                          </h3>
+                          <p className="text-xs text-slate-600">
+                            {paperItem.authors.length > 0 ? paperItem.authors.join(', ') : 'Unknown Authors'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {paperItem.is_open_access ? (
+                            <span
+                              data-testid={`oa-status-badge-${idx}`}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            >
+                              Open Access
+                            </span>
+                          ) : (
+                            <span
+                              data-testid={`oa-status-badge-${idx}`}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200"
+                            >
+                              Closed Access
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            OpenAlex
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Metadata Row */}
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        {paperItem.year && (
+                          <span className="font-semibold text-slate-700">Year: {paperItem.year}</span>
+                        )}
+                        {paperItem.venue && (
+                          <span className="truncate max-w-[280px]">Venue: {paperItem.venue}</span>
+                        )}
+                        <span>Citations: {paperItem.citation_count.toLocaleString()}</span>
+                        {paperItem.doi && (
+                          <span className="font-mono text-[11px] text-slate-600 truncate max-w-[220px]">
+                            DOI: {paperItem.doi}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Abstract Preview */}
+                      {paperItem.abstract && (
+                        <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed bg-slate-50/70 p-3 rounded-lg border border-slate-100">
+                          {paperItem.abstract}
+                        </p>
+                      )}
+
+                      {/* Concepts / Topics */}
+                      {paperItem.topics.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          <Tag className="w-3 h-3 text-indigo-400" />
+                          {paperItem.topics.map((t, ti) => (
+                            <span
+                              key={ti}
+                              className="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-800 border border-indigo-200"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 gap-3">
+                        <div>
+                          {paperItem.source_url && (
+                            <a
+                              href={paperItem.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid={`view-source-btn-${idx}`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>View Source</span>
+                            </a>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {hasOaPdf ? (
+                            isImported ? (
+                              <span
+                                data-testid={`import-success-badge-${idx}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Imported to Library</span>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleImportPaper(paperItem)}
+                                disabled={isImporting}
+                                data-testid={`import-paper-btn-${idx}`}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition cursor-pointer"
+                              >
+                                {isImporting ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Importing PDF...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Import to Project</span>
+                                  </>
+                                )}
+                              </button>
+                            )
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              data-testid={`import-disabled-btn-${idx}`}
+                              className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs font-medium cursor-not-allowed"
+                            >
+                              PDF not openly available
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

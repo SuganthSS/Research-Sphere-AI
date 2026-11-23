@@ -141,6 +141,56 @@ class Paper(Base):
         default=None,
     )
 
+    # External Paper Discovery metadata (populated by Module 13.5)
+    doi: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+        index=True,
+    )
+    external_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+        index=True,
+    )
+    arxiv_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        default=None,
+        index=True,
+    )
+    venue: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        default=None,
+    )
+    year: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None,
+    )
+    citation_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None,
+    )
+    authors_str: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        default=None,
+    )
+    source_url: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        default=None,
+    )
+    open_access_pdf_url: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        default=None,
+    )
+
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="papers")
     project: Mapped["Project"] = relationship("Project", back_populates="papers")

@@ -12,6 +12,7 @@ from app.api.routes.graphs import router as graphs_router
 from app.api.routes.gaps import router as gaps_router
 from app.api.routes.recommendations import router as recommendations_router
 from app.api.routes.researchers import router as researchers_router
+from app.api.routes.discovery import router as discovery_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -47,6 +48,7 @@ app.include_router(graphs_router, prefix="/api", tags=["Graphs"])
 app.include_router(gaps_router, prefix="/api", tags=["Research Gaps"])
 app.include_router(recommendations_router, prefix="/api", tags=["Recommendations"])
 app.include_router(researchers_router, prefix="/api", tags=["Researchers"])
+app.include_router(discovery_router, prefix="/api", tags=["Discovery"])
 
 
 @app.get("/", tags=["Root"])

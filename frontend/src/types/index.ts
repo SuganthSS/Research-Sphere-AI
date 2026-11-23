@@ -469,6 +469,63 @@ export interface ResearcherDiscoveryResponse {
   message?: string | null
 }
 
+export interface DiscoveredPaperItem {
+  paper_id: string
+  title: string
+  authors: string[]
+  year?: number | null
+  venue?: string | null
+  abstract?: string | null
+  citation_count: number
+  doi?: string | null
+  arxiv_id?: string | null
+  source_url?: string | null
+  is_open_access: boolean
+  open_access_pdf_url?: string | null
+  provider: string
+  topics: string[]
+}
+
+export interface PaperDiscoverySearchResponse {
+  query: string
+  total_results: number
+  papers: DiscoveredPaperItem[]
+  provider: string
+  message?: string | null
+}
+
+export interface PaperImportPayload {
+  project_id: string
+  title: string
+  open_access_pdf_url: string
+  paper_id?: string | null
+  doi?: string | null
+  arxiv_id?: string | null
+  authors?: string[]
+  year?: number | null
+  venue?: string | null
+  abstract?: string | null
+  citation_count?: number | null
+  source_url?: string | null
+  auto_extract?: boolean
+}
+
+export interface PaperImportResponse {
+  paper_id: string
+  project_id: string
+  project_name?: string | null
+  title: string
+  original_filename: string
+  stored_filename: string
+  file_size: number
+  mime_type: string
+  status: string
+  extraction_status: string
+  page_count?: number | null
+  message: string
+}
+
+
 
 
 

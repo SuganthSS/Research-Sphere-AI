@@ -30,6 +30,9 @@ import type {
   PaperRecommendationsResponse,
   ResearcherDiscoveryResponse,
   ResearcherProfile,
+  PaperDiscoverySearchResponse,
+  PaperImportPayload,
+  PaperImportResponse,
 } from '../types'
 
 export class ApiError extends Error {
@@ -1577,6 +1580,100 @@ export async function getResearcherProfile(
     if (err instanceof ApiError) throw err
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw new ApiError('Unable to fetch researcher profile.')
+  }
+}
+
+/**
+ * Discovers scientific papers via GET /api/discovery/search.
+ */
+export async function searchDiscoveredPapers(
+  params: {
+    query: string
+    limit?: number
+    offset?: number
+    openAccessOnly?: boolean
+    year?: string
+  },
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperDiscoverySearchResponse> {
+  const qParams = new URLSearchParams()
+  qParams.set('query', params.query)
+  if (params.limit) qParams.set('limit', String(params.limit))
+  if (params.offset) qParams.set('offset', String(params.offset))
+  if (params.openAccessOnly !== undefined) qParams.set('open_access_only', String(params.openAccessOnly))
+  if (params.year) qParams.set('year', params.year)
+
+  const url = `${envConfig.apiBaseUrl}/api/discovery/search?${qParams.toString()}`
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 429) {
+      throw new ApiError('Paper discovery is temporarily rate limited. Please try again shortly.', 429)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Paper search failed with HTTP ${response.status}`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to connect to paper discovery service.')
+  }
+}
+
+/**
+ * Imports an open-access scientific PDF into a project via POST /api/discovery/import.
+ */
+export async function importDiscoveredPaper(
+  payload: PaperImportPayload,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperImportResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/discovery/import`
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (response.status === 201 || response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 409) {
+      throw new ApiError('Paper already exists in this project.', 409)
+    }
+
+    if (response.status === 400) {
+      const body = await response.json().catch(() => ({}))
+      throw new ApiError(body?.detail || 'PDF not openly available or invalid document format.', 400)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Import failed with HTTP ${response.status}`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to import paper.')
   }
 }
 
