@@ -24,6 +24,10 @@ class AskAssistantRequest(BaseModel):
         None,
         description="Target project UUID. Required when scope is 'project'.",
     )
+    mode: Optional[Literal["standard", "graph", "graphrag"]] = Field(
+        "standard",
+        description="Retrieval mode: 'standard' (vector RAG) or 'graph' (hybrid GraphRAG).",
+    )
 
 
 class SourceCitationItem(BaseModel):
@@ -48,6 +52,12 @@ class AskAssistantResponse(BaseModel):
     sources: List[SourceCitationItem]
     total_sources: int
     insufficient_evidence: bool = False
+    retrieval_mode: str = "standard"
+    graph_context_used: bool = False
+    graph_entities: List[str] = Field(default_factory=list)
+    graph_relationships: List[str] = Field(default_factory=list)
+    graph_fallback: bool = False
+    graph_fallback_reason: Optional[str] = None
 
 
 class AssistantStatusResponse(BaseModel):

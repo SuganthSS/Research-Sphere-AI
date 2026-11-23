@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   ChevronRight,
   Database,
+  Network,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import {
   getProjects,
@@ -43,6 +46,8 @@ export const AssistantPage: React.FC = () => {
 
   // Query & Answer states
   const [question, setQuestion] = useState<string>('')
+  const [retrievalMode, setRetrievalMode] = useState<'standard' | 'graph'>('graph')
+  const [isGraphContextOpen, setIsGraphContextOpen] = useState<boolean>(true)
   const [isAsking, setIsAsking] = useState<boolean>(false)
   const [askError, setAskError] = useState<string | null>(null)
   const [response, setResponse] = useState<AskAssistantResponse | null>(null)
@@ -55,6 +60,7 @@ export const AssistantPage: React.FC = () => {
 
   // Quick suggestions
   const suggestedQuestions = [
+    'What methods and research topics are connected across these papers?',
     'What problem is this research trying to solve?',
     'What methodology or approach does the study use?',
     'What are the key results and findings reported in the paper?',
@@ -182,6 +188,7 @@ export const AssistantPage: React.FC = () => {
         scope,
         paper_id: scope === 'paper' ? selectedPaperId : null,
         project_id: selectedProjectId,
+        mode: retrievalMode,
       })
       setResponse(res)
     } catch (err: unknown) {
@@ -252,9 +259,8 @@ export const AssistantPage: React.FC = () => {
         <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-700">
             <span
-              className={`w-2 h-2 rounded-full ${
-                assistantStatus?.configured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-              }`}
+              className={`w-2 h-2 rounded-full ${assistantStatus?.configured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                }`}
             />
             <span className="font-semibold text-slate-800">
               {assistantStatus?.configured ? 'Groq Grounded RAG' : 'Groq LLM'}
@@ -278,7 +284,7 @@ export const AssistantPage: React.FC = () => {
 
       {/* ==================== CONTROL & CONFIGURATION CARD ==================== */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-6 space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* 1. Project Selector */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
@@ -319,11 +325,10 @@ export const AssistantPage: React.FC = () => {
                 }}
                 data-testid="assistant-scope-paper-btn"
                 disabled={isAsking}
-                className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  scope === 'paper'
-                    ? 'bg-white text-[#2563EB] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${scope === 'paper'
+                  ? 'bg-white text-[#2563EB] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+                  }`}
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>This Paper</span>
@@ -337,11 +342,10 @@ export const AssistantPage: React.FC = () => {
                 }}
                 data-testid="assistant-scope-project-btn"
                 disabled={isAsking}
-                className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  scope === 'project'
-                    ? 'bg-white text-[#2563EB] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${scope === 'project'
+                  ? 'bg-white text-[#2563EB] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+                  }`}
               >
                 <Folder className="w-3.5 h-3.5" />
                 <span>Entire Project</span>
@@ -358,11 +362,10 @@ export const AssistantPage: React.FC = () => {
               </span>
               {selectedPaper && (
                 <span
-                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                    isSelectedPaperIndexed
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'bg-amber-50 text-amber-700 border border-amber-200'
-                  }`}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isSelectedPaperIndexed
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
                 >
                   {isSelectedPaperIndexed ? 'Indexed' : 'Needs Indexing'}
                 </span>
@@ -385,6 +388,54 @@ export const AssistantPage: React.FC = () => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* 4. Retrieval Mode Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Network className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Retrieval Mode</span>
+              </span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {retrievalMode === 'graph' ? 'Hybrid' : 'Vector'}
+              </span>
+            </label>
+            <div className="grid grid-cols-2 gap-2 h-10 p-1 bg-slate-100 rounded-lg border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setRetrievalMode('standard')
+                  setResponse(null)
+                }}
+                data-testid="assistant-mode-standard-btn"
+                disabled={isAsking}
+                className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${retrievalMode === 'standard'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+                  }`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>Standard RAG</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRetrievalMode('graph')
+                  setResponse(null)
+                }}
+                data-testid="assistant-mode-graph-btn"
+                disabled={isAsking}
+                className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${retrievalMode === 'graph'
+                  ? 'bg-white text-indigo-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+                  }`}
+              >
+                <Network className="w-3.5 h-3.5 text-indigo-600" />
+                <span>GraphRAG</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -533,7 +584,36 @@ export const AssistantPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                {response.retrieval_mode === 'graph' ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700"
+                    data-testid="assistant-graphrag-indicator"
+                  >
+                    <Network className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>GraphRAG · Vector + Knowledge Graph</span>
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                    data-testid="assistant-standard-indicator"
+                  >
+                    <Database className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Standard Vector RAG</span>
+                  </span>
+                )}
+
+                {response.graph_fallback && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+                    data-testid="assistant-fallback-indicator"
+                    title={response.graph_fallback_reason || undefined}
+                  >
+                    <AlertCircle className="w-3 h-3 text-amber-600" />
+                    <span>Graph unavailable (vector fallback)</span>
+                  </span>
+                )}
+
                 <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                   Scope: {response.scope === 'paper' ? 'Single Paper' : 'Entire Project'}
                 </span>
@@ -570,6 +650,83 @@ export const AssistantPage: React.FC = () => {
             </div>
           </div>
 
+          {/* ==================== GRAPH CONTEXT EXPANDABLE ==================== */}
+          {((response.graph_relationships && response.graph_relationships.length > 0) ||
+            (response.graph_entities && response.graph_entities.length > 0)) && (
+              <div
+                className="rounded-xl border border-indigo-100 bg-indigo-50/30 overflow-hidden shadow-2xs"
+                data-testid="assistant-graph-context-panel"
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsGraphContextOpen(!isGraphContextOpen)}
+                  className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-indigo-50/60 transition cursor-pointer"
+                  data-testid="assistant-graph-context-toggle"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-700">
+                      <Network className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-xs sm:text-sm font-bold text-indigo-950">
+                        Graph Context Used
+                      </span>
+                      <span className="ml-2 text-xs text-indigo-600/80 font-mono">
+                        ({response.graph_relationships?.length || 0} relationships,{' '}
+                        {response.graph_entities?.length || 0} entities)
+                      </span>
+                    </div>
+                  </div>
+                  {isGraphContextOpen ? (
+                    <ChevronUp className="w-4 h-4 text-indigo-600" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-indigo-600" />
+                  )}
+                </button>
+
+                {isGraphContextOpen && (
+                  <div
+                    className="px-5 pb-4 pt-2 space-y-3.5 border-t border-indigo-100/70 bg-white/70"
+                    data-testid="assistant-graph-context-details"
+                  >
+                    {response.graph_entities && response.graph_entities.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          Traversed Scientific Entities
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {response.graph_entities.map((ent, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-800 border border-indigo-200/80 shadow-2xs"
+                            >
+                              {ent}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {response.graph_relationships && response.graph_relationships.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          1–2 Hop Knowledge Graph Traversal Context
+                        </span>
+                        <ul className="text-xs font-mono text-slate-800 bg-slate-50/80 p-3 rounded-lg border border-slate-200/80 space-y-1 max-h-48 overflow-y-auto">
+                          {response.graph_relationships.map((rel, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-indigo-600 font-bold shrink-0">•</span>
+                              <span className="leading-relaxed">{rel}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
           {/* ==================== SOURCES SECTION ==================== */}
           {response.sources.length > 0 && (
             <div className="space-y-3" id="sources-section" data-testid="assistant-sources-container">
@@ -594,11 +751,10 @@ export const AssistantPage: React.FC = () => {
                       key={src.source_number}
                       id={`source-card-${src.source_number}`}
                       data-testid={`source-card-${src.source_number}`}
-                      className={`p-4 rounded-xl border transition-all ${
-                        isHighlighted
-                          ? 'border-indigo-500 bg-indigo-50/40 shadow-sm'
-                          : 'border-[#E2E8F0] bg-white hover:border-slate-300 shadow-xs'
-                      }`}
+                      className={`p-4 rounded-xl border transition-all ${isHighlighted
+                        ? 'border-indigo-500 bg-indigo-50/40 shadow-sm'
+                        : 'border-[#E2E8F0] bg-white hover:border-slate-300 shadow-xs'
+                        }`}
                     >
                       {/* Source Card Header */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">

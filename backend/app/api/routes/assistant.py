@@ -31,6 +31,7 @@ from app.services.llm.exceptions import (
 from app.services.llm.service import llm_service
 from app.services.qdrant_service import qdrant_service
 from app.services.rag_service import rag_service
+from app.services.graph_rag_service import graph_rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -172,13 +173,44 @@ def ask_assistant(
         paper_title = title_map.get(str(p_id), "Research Paper")
         enriched_chunks.append({**r, "paper_title": paper_title})
 
-    # 5. Execute Grounded RAG with LLM provider
+    # 5. Execute Grounded RAG / GraphRAG with LLM provider
+    is_graph_mode = request.mode in ("graph", "graphrag")
     try:
-        rag_output = rag_service.answer_question(
-            question=question_text,
-            retrieved_chunks=enriched_chunks,
-            similarity_threshold=settings.RAG_SIMILARITY_THRESHOLD,
-        )
+        if is_graph_mode:
+            # Determine allowed paper IDs strictly owned by current user
+            if request.scope == "paper":
+                allowed_paper_ids = [str(request.paper_id)]
+            else:
+                project_paper_ids_stmt = select(Paper.id).where(
+                    Paper.project_id == request.project_id,
+                    Paper.user_id == current_user.id,
+                )
+                allowed_paper_ids = [str(row[0]) for row in db.execute(project_paper_ids_stmt).all()]
+
+            output = graph_rag_service.answer_question(
+                question=question_text,
+                retrieved_chunks=enriched_chunks,
+                allowed_paper_ids=allowed_paper_ids,
+                similarity_threshold=settings.RAG_SIMILARITY_THRESHOLD,
+            )
+            retrieval_mode = output.retrieval_mode
+            graph_context_used = output.graph_context_used
+            graph_entities = output.graph_entities
+            graph_relationships = output.graph_relationships
+            graph_fallback = output.graph_fallback
+            graph_fallback_reason = output.graph_fallback_reason
+        else:
+            output = rag_service.answer_question(
+                question=question_text,
+                retrieved_chunks=enriched_chunks,
+                similarity_threshold=settings.RAG_SIMILARITY_THRESHOLD,
+            )
+            retrieval_mode = "standard"
+            graph_context_used = False
+            graph_entities = []
+            graph_relationships = []
+            graph_fallback = False
+            graph_fallback_reason = None
     except LLMConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -234,16 +266,22 @@ def ask_assistant(
             similarity_score=s.similarity_score,
             text=s.text,
         )
-        for s in rag_output.sources
+        for s in output.sources
     ]
 
     return AskAssistantResponse(
         question=question_text,
-        answer=rag_output.answer,
+        answer=output.answer,
         scope=request.scope,
         paper_id=request.paper_id,
         project_id=request.project_id,
         sources=sources_out,
-        total_sources=rag_output.total_sources,
-        insufficient_evidence=rag_output.insufficient_evidence,
+        total_sources=output.total_sources,
+        insufficient_evidence=output.insufficient_evidence,
+        retrieval_mode=retrieval_mode,
+        graph_context_used=graph_context_used,
+        graph_entities=graph_entities,
+        graph_relationships=graph_relationships,
+        graph_fallback=graph_fallback,
+        graph_fallback_reason=graph_fallback_reason,
     )

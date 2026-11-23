@@ -208,6 +208,7 @@ export interface AskAssistantRequest {
   scope: 'paper' | 'project'
   paper_id?: string | null
   project_id?: string | null
+  mode?: 'standard' | 'graph'
 }
 
 export interface AskAssistantResponse {
@@ -219,6 +220,12 @@ export interface AskAssistantResponse {
   sources: SourceCitationItem[]
   total_sources: number
   insufficient_evidence: boolean
+  retrieval_mode?: string
+  graph_context_used?: boolean
+  graph_entities?: string[]
+  graph_relationships?: string[]
+  graph_fallback?: boolean
+  graph_fallback_reason?: string | null
 }
 
 export interface AssistantStatusResponse {

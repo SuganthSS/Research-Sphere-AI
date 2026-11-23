@@ -180,6 +180,103 @@ class Neo4jService:
             logger.error("Failed to query Neo4j for paper graph: %s", exc)
             return None
 
+    def get_graph_context(
+        self,
+        paper_ids: List[str],
+        max_relationships: int = 30,
+    ) -> Dict[str, Any]:
+        """Traverses Neo4j for 1-2 hop relationships strictly constrained to allowed paper IDs."""
+        if not self.is_available() or not paper_ids:
+            return {"entities": [], "relationships": [], "context_text": ""}
+
+        driver = self._get_driver()
+        if not driver:
+            return {"entities": [], "relationships": [], "context_text": ""}
+
+        entities_set = set()
+        relationships_list = []
+        rel_signatures = set()
+
+        try:
+            with driver.session() as session:
+                # 1. 1-hop traversal: Paper -> Author, Topic, Method, Dataset
+                query_1hop = (
+                    "MATCH (p:Paper)-[r]-(e) "
+                    "WHERE p.id IN $paper_ids "
+                    "RETURN p.name as paper_name, type(r) as r_type, labels(e)[0] as e_label, e.name as e_name "
+                    "LIMIT $limit"
+                )
+                res_1hop = session.run(query_1hop, paper_ids=paper_ids, limit=max_relationships)
+                for record in res_1hop:
+                    paper_name = record["paper_name"] or "Paper"
+                    r_type = record["r_type"]
+                    e_label = record["e_label"] or "Entity"
+                    e_name = record["e_name"]
+                    if not e_name:
+                        continue
+                    entities_set.add(e_name)
+                    sig = (paper_name, r_type, e_name)
+                    if sig not in rel_signatures:
+                        rel_signatures.add(sig)
+                        relationships_list.append(f"Paper '{paper_name}' {r_type} {e_label} '{e_name}'")
+
+                # 2. 2-hop traversal: Topic -[:RELATED_TO]-> Topic
+                query_2hop_topics = (
+                    "MATCH (p:Paper)-[:DISCUSSES]->(t1:Topic)-[r:RELATED_TO]-(t2:Topic) "
+                    "WHERE p.id IN $paper_ids AND t1.name <> t2.name "
+                    "RETURN DISTINCT t1.name as topic1, t2.name as topic2 "
+                    "LIMIT 10"
+                )
+                res_2hop = session.run(query_2hop_topics, paper_ids=paper_ids)
+                for record in res_2hop:
+                    t1 = record["topic1"]
+                    t2 = record["topic2"]
+                    if t1 and t2:
+                        entities_set.add(t1)
+                        entities_set.add(t2)
+                        sig = (t1, "RELATED_TO", t2)
+                        sig_rev = (t2, "RELATED_TO", t1)
+                        if sig not in rel_signatures and sig_rev not in rel_signatures:
+                            rel_signatures.add(sig)
+                            relationships_list.append(f"Topic '{t1}' RELATED_TO Topic '{t2}'")
+
+                # 3. 2-hop cross-paper links between allowed papers
+                if len(paper_ids) > 1:
+                    query_cross = (
+                        "MATCH (p1:Paper)-[r1]-(e)-[r2]-(p2:Paper) "
+                        "WHERE p1.id IN $paper_ids AND p2.id IN $paper_ids AND p1.id < p2.id "
+                        "RETURN p1.name as paper1_name, type(r1) as r1_type, e.name as e_name, labels(e)[0] as e_label, type(r2) as r2_type, p2.name as paper2_name "
+                        "LIMIT 10"
+                    )
+                    res_cross = session.run(query_cross, paper_ids=paper_ids)
+                    for record in res_cross:
+                        p1_name = record["paper1_name"] or "Paper 1"
+                        p2_name = record["paper2_name"] or "Paper 2"
+                        e_name = record["e_name"]
+                        e_label = record["e_label"] or "Entity"
+                        r1_type = record["r1_type"]
+                        r2_type = record["r2_type"]
+                        if e_name:
+                            entities_set.add(e_name)
+                            sig = (p1_name, e_name, p2_name)
+                            if sig not in rel_signatures:
+                                rel_signatures.add(sig)
+                                relationships_list.append(
+                                    f"Paper '{p1_name}' ({r1_type}) and Paper '{p2_name}' ({r2_type}) both connect to {e_label} '{e_name}'"
+                                )
+
+            context_lines = [f"- {rel}" for rel in relationships_list]
+            context_text = "\n".join(context_lines)
+
+            return {
+                "entities": sorted(list(entities_set)),
+                "relationships": relationships_list,
+                "context_text": context_text,
+            }
+        except Exception as exc:
+            logger.error("Failed to retrieve graph context from Neo4j: %s", exc)
+            return {"entities": [], "relationships": [], "context_text": ""}
+
     def close(self) -> None:
         """Closes Neo4j driver connection pool."""
         if self._driver:
