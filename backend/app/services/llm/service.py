@@ -31,14 +31,23 @@ class LLMService:
         prompt: str,
         system_instruction: str,
         temperature: float = 0.1,
+        max_tokens: Optional[int] = None,
     ) -> str:
         """Generate grounded completion using configured provider."""
+        import inspect
+
         start_time = time.time()
-        result = self.provider.generate(
-            prompt=prompt,
-            system_instruction=system_instruction,
-            temperature=temperature,
-        )
+        call_kwargs: Dict[str, Any] = {
+            "prompt": prompt,
+            "system_instruction": system_instruction,
+            "temperature": temperature,
+        }
+        sig = inspect.signature(self.provider.generate)
+        if "max_tokens" in sig.parameters or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+            if max_tokens is not None:
+                call_kwargs["max_tokens"] = max_tokens
+
+        result = self.provider.generate(**call_kwargs)
         duration = round(time.time() - start_time, 3)
         logger.info(
             "LLM generation finished in %ss (%d chars output)",

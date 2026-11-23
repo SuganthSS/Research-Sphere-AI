@@ -5,5 +5,6 @@ from app.models.paper import Paper
 from app.models.paper_page import PaperPage
 from app.models.paper_chunk import PaperChunk
 from app.models.paper_summary import PaperSummary
+from app.models.paper_comparison import PaperComparison
 
-__all__ = ["User", "Project", "Paper", "PaperPage", "PaperChunk", "PaperSummary"]
+__all__ = ["User", "Project", "Paper", "PaperPage", "PaperChunk", "PaperSummary", "PaperComparison"]

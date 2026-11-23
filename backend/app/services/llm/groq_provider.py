@@ -52,6 +52,7 @@ class GroqProvider(BaseLLMProvider):
         prompt: str,
         system_instruction: Optional[str] = None,
         temperature: float = 0.1,
+        max_tokens: Optional[int] = None,
     ) -> str:
         """Execute chat completion call via Groq API with robust error normalization."""
         # Ensure client can be instantiated (or raise LLMConfigurationError)
@@ -62,12 +63,19 @@ class GroqProvider(BaseLLMProvider):
             messages.append({"role": "system", "content": system_instruction})
         messages.append({"role": "user", "content": prompt})
 
+        # Safeguard for models with strict OTPM (output tokens per minute) limits on Groq free/on-demand tier
+        call_kwargs: Dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            call_kwargs["max_tokens"] = max_tokens
+        elif "qwen" in (self.model or "").lower():
+            call_kwargs["max_tokens"] = 900
+
         try:
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature,
-            )
+            response = client.chat.completions.create(**call_kwargs)
             if not response.choices or not response.choices[0].message:
                 raise LLMProviderError("Empty response received from Groq LLM.")
 
@@ -81,11 +89,11 @@ class GroqProvider(BaseLLMProvider):
             if "NotFoundError" in cls_name and self.model != "qwen/qwen3.8-27b":
                 logger.warning("Groq model %s not found, attempting fallback to qwen/qwen3.8-27b", self.model)
                 try:
-                    resp = client.chat.completions.create(
-                        model="qwen/qwen3.8-27b",
-                        messages=messages,
-                        temperature=temperature,
-                    )
+                    fallback_kwargs = dict(call_kwargs)
+                    fallback_kwargs["model"] = "qwen/qwen3.8-27b"
+                    if "max_tokens" not in fallback_kwargs:
+                        fallback_kwargs["max_tokens"] = 900
+                    resp = client.chat.completions.create(**fallback_kwargs)
                     if resp.choices and resp.choices[0].message:
                         return (resp.choices[0].message.content or "").strip()
                 except Exception as fallback_exc:

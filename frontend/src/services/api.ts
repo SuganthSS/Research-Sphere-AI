@@ -22,6 +22,7 @@ import type {
   AssistantStatusResponse,
   GroqHealthResponse,
   PaperSummaryResponse,
+  PaperComparisonResponse,
 } from '../types'
 
 export class ApiError extends Error {
@@ -1167,6 +1168,124 @@ export async function generatePaperSummary(
     throw new ApiError('Unable to reach backend API to generate paper summary.')
   }
 }
+
+/**
+ * POST /api/comparisons
+ */
+export async function comparePapers(
+  paperIds: string[],
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperComparisonResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/comparisons`
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      body: JSON.stringify({ paper_ids: paperIds }),
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to compare research papers.', 401)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to compare papers (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API for paper comparison.')
+  }
+}
+
+/**
+ * GET /api/comparisons/{comparisonId}
+ */
+export async function getComparisonById(
+  comparisonId: string,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperComparisonResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/comparisons/${comparisonId}`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to retrieve comparison.', 401)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to fetch comparison (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API for paper comparison.')
+  }
+}
+
+/**
+ * GET /api/comparisons?paper_ids=...
+ */
+export async function getComparisonByPaperIds(
+  paperIds: string[],
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperComparisonResponse> {
+  const params = new URLSearchParams()
+  paperIds.forEach((id) => params.append('paper_ids', id))
+  const url = `${envConfig.apiBaseUrl}/api/comparisons?${params.toString()}`
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 404) {
+      throw new ApiError('No existing comparison found for these papers.', 404)
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to retrieve comparison.', 401)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to fetch comparison (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API for paper comparison.')
+  }
+}
+
 
 
 

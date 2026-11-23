@@ -272,5 +272,67 @@ export interface PaperSummaryResponse {
   updated_at: string
 }
 
+export interface ComparisonCitation {
+  source_number: number
+  paper_id: string
+  chunk_id: string
+  chunk_index: number
+  section_name: string
+  start_page: number
+  end_page: number
+}
+
+export interface PaperMetadataBrief {
+  id: string
+  title: string
+  original_filename: string
+  page_count?: number | null
+  chunk_count?: number | null
+}
+
+export interface PaperDimensionSummary {
+  paper_id: string
+  paper_title: string
+  summary: string
+  citations: ComparisonCitation[]
+}
+
+export interface ComparisonDimensionRow {
+  dimension: string
+  label: string
+  papers: Record<string, PaperDimensionSummary>
+  synthesis?: string | null
+}
+
+export interface SynthesisItem {
+  title: string
+  description: string
+  paper_ids: string[]
+  citations: ComparisonCitation[]
+}
+
+export interface StructuredComparison {
+  compared_papers: PaperMetadataBrief[]
+  dimensions: Record<string, ComparisonDimensionRow>
+  similarities: SynthesisItem[]
+  differences: SynthesisItem[]
+}
+
+export interface ComparePapersRequest {
+  paper_ids: string[]
+}
+
+export interface PaperComparisonResponse {
+  id: string
+  user_id: string
+  paper_ids: string[]
+  comparison: StructuredComparison
+  model_provider: string
+  model_name: string
+  created_at: string
+  updated_at: string
+}
+
+
 
 

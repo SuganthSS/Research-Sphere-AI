@@ -12,6 +12,7 @@ class BaseLLMProvider(ABC):
         prompt: str,
         system_instruction: Optional[str] = None,
         temperature: float = 0.1,
+        max_tokens: Optional[int] = None,
     ) -> str:
         """Generate text completion for given prompt and optional system instruction."""
         pass
