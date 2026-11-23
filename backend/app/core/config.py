@@ -90,6 +90,17 @@ class Settings(BaseModel):
         default_factory=lambda: int(os.getenv("EMBEDDING_BATCH_SIZE", "32"))
     )
 
+    # Neo4j Graph Database Configuration
+    NEO4J_URI: str = Field(
+        default_factory=lambda: os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    )
+    NEO4J_USER: str = Field(
+        default_factory=lambda: os.getenv("NEO4J_USER") or os.getenv("NEO4J_USERNAME", "neo4j")
+    )
+    NEO4J_PASSWORD: str = Field(
+        default_factory=lambda: os.getenv("NEO4J_PASSWORD", "")
+    )
+
     # Groq LLM Configuration
     GROQ_API_KEY: str | None = Field(
         default_factory=lambda: os.getenv("GROQ_API_KEY", "") or None

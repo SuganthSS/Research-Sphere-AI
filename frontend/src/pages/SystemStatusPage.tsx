@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Activity, Server, Database, Globe, RefreshCw, CheckCircle2, XCircle, Sparkles, AlertCircle } from 'lucide-react'
+import { Activity, Server, Database, Globe, RefreshCw, CheckCircle2, XCircle, Sparkles, AlertCircle, Network } from 'lucide-react'
 import { envConfig } from '../config/env'
-import { getGroqHealth } from '../services/api'
-import type { HealthCheckStatus, DatabaseCheckStatus, HealthResponse, DatabaseHealthResponse, GroqHealthResponse } from '../types'
+import { getGroqHealth, getNeo4jStatus } from '../services/api'
+import type { HealthCheckStatus, DatabaseCheckStatus, HealthResponse, DatabaseHealthResponse, GroqHealthResponse, Neo4jStatusResponse } from '../types'
 
 interface OutletContextType {
   backendStatus: HealthCheckStatus
@@ -29,6 +29,8 @@ export const SystemStatusPage: React.FC = () => {
 
   const [groqData, setGroqData] = useState<GroqHealthResponse | null>(null)
   const [groqStatus, setGroqStatus] = useState<'loading' | 'configured' | 'not_configured' | 'unavailable'>('loading')
+  const [neo4jData, setNeo4jData] = useState<Neo4jStatusResponse | null>(null)
+  const [neo4jStatus, setNeo4jStatus] = useState<'loading' | 'Connected' | 'Not configured' | 'Unavailable'>('loading')
 
   const checkGroqHealth = useCallback(async () => {
     setGroqStatus('loading')
@@ -45,13 +47,26 @@ export const SystemStatusPage: React.FC = () => {
     }
   }, [])
 
+  const checkNeo4jHealth = useCallback(async () => {
+    setNeo4jStatus('loading')
+    try {
+      const data = await getNeo4jStatus()
+      setNeo4jData(data)
+      setNeo4jStatus(data.status as 'Connected' | 'Not configured' | 'Unavailable')
+    } catch {
+      setNeo4jStatus('Unavailable')
+    }
+  }, [])
+
   useEffect(() => {
     checkGroqHealth()
-  }, [checkGroqHealth, lastChecked])
+    checkNeo4jHealth()
+  }, [checkGroqHealth, checkNeo4jHealth, lastChecked])
 
   const handleRefreshAll = () => {
     retry()
     checkGroqHealth()
+    checkNeo4jHealth()
   }
 
   return (
@@ -257,6 +272,58 @@ export const SystemStatusPage: React.FC = () => {
             {groqData?.message && (
               <p className="text-[11px] text-slate-400 pt-1 leading-relaxed truncate" title={groqData.message}>
                 {groqData.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Signal 5: Neo4j Graph Database */}
+        <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Network className="w-4 h-4 text-indigo-400" />
+              <span className="text-xs font-semibold text-slate-200">Neo4j Graph</span>
+            </div>
+
+            {neo4jStatus === 'Connected' && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                <CheckCircle2 className="w-3 h-3" />
+                Connected
+              </span>
+            )}
+            {neo4jStatus === 'loading' && (
+              <span className="text-[11px] font-mono text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                Checking...
+              </span>
+            )}
+            {neo4jStatus === 'Not configured' && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                <AlertCircle className="w-3 h-3" />
+                Not Configured
+              </span>
+            )}
+            {neo4jStatus === 'Unavailable' && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-rose-400 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                <XCircle className="w-3 h-3" />
+                Unavailable
+              </span>
+            )}
+          </div>
+
+          <div className="text-xs space-y-1.5 text-slate-300">
+            <div className="flex justify-between">
+              <span className="text-slate-400">URI:</span>
+              <span className="font-mono text-slate-200 truncate max-w-[140px]" title={neo4jData?.uri}>
+                {neo4jData?.uri || 'bolt://localhost:7687'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Endpoint:</span>
+              <span className="font-mono text-slate-200">/api/graphs/status</span>
+            </div>
+            {neo4jData?.message && (
+              <p className="text-[11px] text-slate-400 pt-1 leading-relaxed truncate" title={neo4jData.message}>
+                {neo4jData.message}
               </p>
             )}
           </div>

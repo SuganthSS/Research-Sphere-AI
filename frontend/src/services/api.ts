@@ -23,6 +23,8 @@ import type {
   GroqHealthResponse,
   PaperSummaryResponse,
   PaperComparisonResponse,
+  KnowledgeGraphResponse,
+  Neo4jStatusResponse,
 } from '../types'
 
 export class ApiError extends Error {
@@ -1283,6 +1285,102 @@ export async function getComparisonByPaperIds(
     if (err instanceof ApiError) throw err
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw new ApiError('Unable to reach backend API for paper comparison.')
+  }
+}
+
+/**
+ * Checks connectivity status of Neo4j graph database from GET /api/graphs/status.
+ */
+export async function getNeo4jStatus(signal?: AbortSignal): Promise<Neo4jStatusResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/graphs/status`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal,
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+    return {
+      status: 'Unavailable',
+      uri: 'bolt://localhost:7687',
+      message: `Failed to check status (HTTP ${response.status})`,
+    }
+  } catch {
+    return {
+      status: 'Unavailable',
+      uri: 'bolt://localhost:7687',
+      message: 'Failed to reach graph status service.',
+    }
+  }
+}
+
+/**
+ * Generates or rebuilds the knowledge graph for a paper from POST /api/graphs/papers/:paperId/generate.
+ */
+export async function generatePaperGraph(
+  paperId: string,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<KnowledgeGraphResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/graphs/papers/${paperId}/generate`
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to generate graph (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to generate knowledge graph.')
+  }
+}
+
+/**
+ * Retrieves existing knowledge graph for a paper from GET /api/graphs/papers/:paperId.
+ */
+export async function getPaperGraph(
+  paperId: string,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<KnowledgeGraphResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/graphs/papers/${paperId}`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 404) {
+      throw new ApiError('Knowledge graph not found for this paper.', 404)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to fetch graph (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to fetch knowledge graph.')
   }
 }
 

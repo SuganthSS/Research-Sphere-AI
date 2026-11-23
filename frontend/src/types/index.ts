@@ -333,6 +333,34 @@ export interface PaperComparisonResponse {
   updated_at: string
 }
 
+export interface GraphNode {
+  id: string
+  label: 'Paper' | 'Author' | 'Topic' | 'Method' | 'Dataset' | string
+  name: string
+  properties?: Record<string, unknown>
+}
+
+export interface GraphEdge {
+  id: string
+  source: string
+  target: string
+  label: 'AUTHORED_BY' | 'DISCUSSES' | 'USES_METHOD' | 'USES_DATASET' | 'RELATED_TO' | string
+  properties?: Record<string, unknown>
+}
+
+export interface KnowledgeGraphResponse {
+  paper_id: string
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  neo4j_synced: boolean
+}
+
+export interface Neo4jStatusResponse {
+  status: 'Connected' | 'Not configured' | 'Unavailable'
+  uri: string
+  message: string
+}
+
 
 
 
