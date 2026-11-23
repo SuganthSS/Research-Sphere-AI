@@ -85,10 +85,13 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   const initials = getInitials(user?.name)
-  const currentBreadcrumb = routeBreadcrumbs[location.pathname] || {
-    group: 'Workspace',
-    page: 'ResearchSphere',
-  }
+  const isProjectWorkspace = location.pathname.startsWith('/projects/') && location.pathname !== '/projects'
+  const currentBreadcrumb = isProjectWorkspace
+    ? { group: 'Projects', page: 'Project Workspace' }
+    : routeBreadcrumbs[location.pathname] || {
+        group: 'Workspace',
+        page: 'ResearchSphere',
+      }
 
   return (
     <header className="h-16 bg-white border-b border-[#E2E8F0] z-30 flex items-center justify-between px-4 sm:px-8 shadow-[0_1px_2px_rgba(0,0,0,0.03)] sticky top-0">
@@ -135,7 +138,9 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[12px] font-medium text-[#0F172A] leading-tight">
               Research Workspace
             </span>
-            <span className="text-[11px] text-[#64748B] leading-none">No active project</span>
+            <span className="text-[11px] text-[#64748B] leading-none">
+              {isProjectWorkspace ? 'Active Project Workspace' : 'No active project'}
+            </span>
           </div>
         </div>
 

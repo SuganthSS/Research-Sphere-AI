@@ -66,6 +66,21 @@ class Settings(BaseModel):
         default_factory=lambda: int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
     )
 
+    # Document / PDF Storage Configuration
+    STORAGE_LOCAL_DIR: str = Field(
+        default_factory=lambda: os.getenv("STORAGE_LOCAL_DIR", "storage/papers")
+    )
+    MAX_UPLOAD_SIZE_BYTES: int = Field(
+        default_factory=lambda: int(os.getenv("MAX_UPLOAD_SIZE_BYTES", "52428800"))  # 50MB
+    )
+
+    @property
+    def storage_path(self) -> Path:
+        """Returns resolved Path for local document storage."""
+        base = Path(__file__).resolve().parent.parent.parent
+        p = Path(self.STORAGE_LOCAL_DIR)
+        return p if p.is_absolute() else (base / p).resolve()
+
     @property
     def safe_database_info(self) -> str:
         """Returns safe representation of database connection target without credentials."""

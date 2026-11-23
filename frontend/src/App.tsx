@@ -5,7 +5,9 @@ import { PublicOnlyRoute } from './components/auth/PublicOnlyRoute'
 import { AppLayout } from './components/layout/AppLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage'
 import { PapersPage } from './pages/PapersPage'
+import { PaperDetailPage } from './pages/PaperDetailPage'
 import { AssistantPage } from './pages/AssistantPage'
 import { ComparePage } from './pages/ComparePage'
 import { KnowledgeGraphPage } from './pages/KnowledgeGraphPage'
@@ -31,7 +33,9 @@ export function App() {
             <Route path="/" element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="projects" element={<ProjectsPage />} />
+              <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
               <Route path="papers" element={<PapersPage />} />
+              <Route path="papers/:paperId" element={<PaperDetailPage />} />
               <Route path="assistant" element={<AssistantPage />} />
               <Route path="compare" element={<ComparePage />} />
               <Route path="knowledge-graph" element={<KnowledgeGraphPage />} />

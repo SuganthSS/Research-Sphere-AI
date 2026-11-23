@@ -65,7 +65,10 @@ async function main() {
     console.log('\n--- Running visual_verify_logout.mjs ---')
     execSync('node frontend/tests/visual_verify_logout.mjs', { cwd: projectRoot, stdio: 'inherit' })
 
-    console.log('\n✅ ALL 4 TEST SUITES PASSED FLAWLESSLY!')
+    console.log('\n--- Running visual_verify_projects.mjs (Module 2) ---')
+    execSync('node frontend/tests/visual_verify_projects.mjs', { cwd: projectRoot, stdio: 'inherit' })
+
+    console.log('\n✅ ALL 5 TEST SUITES PASSED FLAWLESSLY!')
   } finally {
     if (backendProc) backendProc.kill()
     if (frontendProc) frontendProc.kill()

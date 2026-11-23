@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import {
   Folder,
@@ -16,8 +16,11 @@ import {
   FileText,
   AlertTriangle,
   CheckCircle2,
+  Clock,
+  ExternalLink,
 } from 'lucide-react'
-import type { HealthCheckStatus, DatabaseCheckStatus } from '../types'
+import type { HealthCheckStatus, DatabaseCheckStatus, Project, Paper } from '../types'
+import { getProjects, getPapers } from '../services/api'
 
 interface OutletContextType {
   backendStatus: HealthCheckStatus
@@ -26,6 +29,25 @@ interface OutletContextType {
 
 export const DashboardPage: React.FC = () => {
   const { backendStatus, dbStatus } = useOutletContext<OutletContextType>()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [papers, setPapers] = useState<Paper[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+    Promise.all([getProjects(), getPapers()])
+      .then(([projRes, papersRes]) => {
+        if (isMounted) {
+          setProjects(projRes.projects)
+          setPapers(papersRes.papers)
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully on fetch error
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <div className="p-4 sm:p-8 max-w-[1560px] mx-auto w-full space-y-8">
@@ -69,8 +91,16 @@ export const DashboardPage: React.FC = () => {
             <p className="text-[11px] font-medium text-[#64748B] uppercase tracking-wider">
               Active Projects
             </p>
-            <p className="text-3xl font-bold text-[#0F172A] tracking-tight">0</p>
-            <p className="text-[12px] text-[#64748B]">No active projects</p>
+            <p className="text-3xl font-bold text-[#0F172A] tracking-tight" data-testid="metric-active-projects">
+              {projects.length}
+            </p>
+            <p className="text-[12px] text-[#64748B]">
+              {projects.length === 0
+                ? 'No active projects'
+                : projects.length === 1
+                ? '1 active research project'
+                : `${projects.length} active research projects`}
+            </p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
             <Folder className="w-5 h-5" />
@@ -83,10 +113,18 @@ export const DashboardPage: React.FC = () => {
             <p className="text-[11px] font-medium text-[#64748B] uppercase tracking-wider">
               Papers in Library
             </p>
-            <p className="text-3xl font-bold text-[#0F172A] tracking-tight">0</p>
+            <p className="text-3xl font-bold text-[#0F172A] tracking-tight" data-testid="metric-papers-library">
+              {papers.length}
+            </p>
             <div className="flex items-center gap-1.5 text-[12px] text-[#0D9488] font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" />
-              <span>0 fully indexed</span>
+              <span>
+                {papers.length === 0
+                  ? '0 papers uploaded'
+                  : papers.length === 1
+                  ? '1 paper uploaded'
+                  : `${papers.length} papers uploaded`}
+              </span>
             </div>
           </div>
           <div className="w-10 h-10 rounded-lg bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0">
@@ -145,30 +183,74 @@ export const DashboardPage: React.FC = () => {
               </Link>
             </div>
 
-            {/* Empty State Callout */}
-            <div className="py-10 px-4 text-center space-y-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                <Folder className="w-6 h-6" />
+            {/* Populated or Empty State */}
+            {projects.length > 0 ? (
+              <div className="divide-y divide-slate-100" data-testid="dashboard-recent-projects-list">
+                {projects.slice(0, 3).map((proj) => (
+                  <div key={proj.id} className="py-3.5 flex items-start justify-between gap-4 group">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/projects/${proj.id}`}
+                          className="text-[14px] font-semibold text-[#0F172A] hover:text-[#2563EB] transition-colors"
+                        >
+                          {proj.name}
+                        </Link>
+                        <span className="inline-flex items-center px-2 py-0.2 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Active
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-[#64748B] line-clamp-1">
+                        {proj.description || 'No description provided.'}
+                      </p>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          Updated{' '}
+                          {new Date(proj.updated_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`/projects/${proj.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 px-2.5 py-1 rounded-md transition-colors shrink-0"
+                    >
+                      <span>Open</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+                ))}
               </div>
-              <div className="space-y-1 max-w-md mx-auto">
-                <h3 className="text-[15px] font-semibold text-[#0F172A]">
-                  No active research projects yet
-                </h3>
-                <p className="text-[13px] text-[#64748B] leading-relaxed">
-                  Projects organize your literature collections, research goals, and AI synthesis
-                  contexts. Project creation and management will be enabled in Module 2.
-                </p>
+            ) : (
+              /* Empty State Callout */
+              <div className="py-10 px-4 text-center space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                  <Folder className="w-6 h-6" />
+                </div>
+                <div className="space-y-1 max-w-md mx-auto">
+                  <h3 className="text-[15px] font-semibold text-[#0F172A]">
+                    No active research projects yet
+                  </h3>
+                  <p className="text-[13px] text-[#64748B] leading-relaxed">
+                    Projects organize your literature collections, research goals, and AI synthesis
+                    contexts. Create your first project to get started.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <Link
+                    to="/projects"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[13px] font-medium text-[#0F172A] hover:bg-slate-100 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#2563EB]" />
+                    <span>Explore Projects Area</span>
+                  </Link>
+                </div>
               </div>
-              <div className="pt-2">
-                <Link
-                  to="/projects"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[13px] font-medium text-[#0F172A] hover:bg-slate-100 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5 text-[#2563EB]" />
-                  <span>Explore Projects Area</span>
-                </Link>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Section B: Recent Papers (Truthful Empty State) */}
@@ -189,30 +271,73 @@ export const DashboardPage: React.FC = () => {
               </Link>
             </div>
 
-            {/* Empty State Callout */}
-            <div className="py-10 px-4 text-center space-y-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                <FileText className="w-6 h-6" />
+            {/* Populated or Empty State */}
+            {papers.length > 0 ? (
+              <div className="divide-y divide-slate-100" data-testid="dashboard-recent-papers-list">
+                {papers.slice(0, 3).map((paper) => (
+                  <div key={paper.id} className="py-3.5 flex items-start justify-between gap-4 group">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/papers/${paper.id}`}
+                          className="text-[14px] font-semibold text-[#0F172A] hover:text-[#2563EB] transition-colors line-clamp-1"
+                        >
+                          {paper.title}
+                        </Link>
+                        <span className="inline-flex items-center px-2 py-0.2 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Uploaded
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-[#64748B] font-mono">
+                        {paper.original_filename}
+                      </p>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <Clock className="w-3 h-3" />
+                        <span>
+                          Added{' '}
+                          {new Date(paper.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`/papers/${paper.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 px-2.5 py-1 rounded-md transition-colors shrink-0"
+                    >
+                      <span>View</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+                ))}
               </div>
-              <div className="space-y-1 max-w-md mx-auto">
-                <h3 className="text-[15px] font-semibold text-[#0F172A]">
-                  No papers in library yet
-                </h3>
-                <p className="text-[13px] text-[#64748B] leading-relaxed">
-                  Ingest research papers via PDF upload, arXiv identifiers, or PubMed DOIs in
-                  Module 2 to unlock automated methodology extraction.
-                </p>
+            ) : (
+              /* Empty State Callout */
+              <div className="py-10 px-4 text-center space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div className="space-y-1 max-w-md mx-auto">
+                  <h3 className="text-[15px] font-semibold text-[#0F172A]">
+                    No papers in library yet
+                  </h3>
+                  <p className="text-[13px] text-[#64748B] leading-relaxed">
+                    Ingest research papers via PDF upload, arXiv identifiers, or PubMed DOIs to unlock automated methodology extraction.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <Link
+                    to="/papers"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[13px] font-medium text-[#0F172A] hover:bg-slate-100 transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-[#0D9488]" />
+                    <span>Go to Paper Library</span>
+                  </Link>
+                </div>
               </div>
-              <div className="pt-2">
-                <Link
-                  to="/papers"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-[13px] font-medium text-[#0F172A] hover:bg-slate-100 transition-colors"
-                >
-                  <Upload className="w-3.5 h-3.5 text-[#0D9488]" />
-                  <span>Go to Paper Library</span>
-                </Link>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Section C: Epistemic Evidence Standards Card (Stitch Scientific Design System Highlight) */}

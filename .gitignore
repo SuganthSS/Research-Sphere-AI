@@ -51,3 +51,7 @@ yarn-error.log*
 # Test Artifacts & Screenshots
 **/screenshots/
 frontend/tests/screenshots/
+
+# Storage uploads
+backend/storage/papers/
+!backend/storage/.gitkeep

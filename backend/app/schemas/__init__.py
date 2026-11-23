@@ -5,6 +5,19 @@ from app.schemas.user import (
     UserResponse,
     TokenResponse,
 )
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectUpdate,
+    ProjectResponse,
+    ProjectListResponse,
+)
+from app.schemas.paper import (
+    PaperResponse,
+    PaperListResponse,
+    PaperPageResponse,
+    PaperPagesListResponse,
+    PaperExtractionResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -13,4 +26,13 @@ __all__ = [
     "UserLoginRequest",
     "UserResponse",
     "TokenResponse",
+    "ProjectCreate",
+    "ProjectUpdate",
+    "ProjectResponse",
+    "ProjectListResponse",
+    "PaperResponse",
+    "PaperListResponse",
+    "PaperPageResponse",
+    "PaperPagesListResponse",
+    "PaperExtractionResponse",
 ]
