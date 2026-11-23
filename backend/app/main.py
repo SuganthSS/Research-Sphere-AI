@@ -10,6 +10,8 @@ from app.api.routes.assistant import router as assistant_router
 from app.api.routes.comparisons import router as comparisons_router
 from app.api.routes.graphs import router as graphs_router
 from app.api.routes.gaps import router as gaps_router
+from app.api.routes.recommendations import router as recommendations_router
+from app.api.routes.researchers import router as researchers_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -43,6 +45,8 @@ app.include_router(assistant_router, prefix="/api", tags=["Assistant"])
 app.include_router(comparisons_router, prefix="/api", tags=["Comparisons"])
 app.include_router(graphs_router, prefix="/api", tags=["Graphs"])
 app.include_router(gaps_router, prefix="/api", tags=["Research Gaps"])
+app.include_router(recommendations_router, prefix="/api", tags=["Recommendations"])
+app.include_router(researchers_router, prefix="/api", tags=["Researchers"])
 
 
 @app.get("/", tags=["Root"])

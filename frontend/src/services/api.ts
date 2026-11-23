@@ -27,6 +27,9 @@ import type {
   Neo4jStatusResponse,
   AnalyzeResearchGapsRequest,
   ResearchGapAnalysisResponse,
+  PaperRecommendationsResponse,
+  ResearcherDiscoveryResponse,
+  ResearcherProfile,
 } from '../types'
 
 export class ApiError extends Error {
@@ -1461,6 +1464,122 @@ export async function getLatestResearchGaps(
     throw new ApiError('Unable to fetch research gap analysis.')
   }
 }
+
+/**
+ * Retrieves transparent corpus-based paper recommendations.
+ */
+export async function getPaperRecommendations(
+  targetPaperId?: string | null,
+  projectId?: string | null,
+  limit: number = 5,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperRecommendationsResponse> {
+  const params = new URLSearchParams()
+  if (targetPaperId) params.append('target_paper_id', targetPaperId)
+  if (projectId) params.append('project_id', projectId)
+  if (limit) params.append('limit', String(limit))
+
+  const queryString = params.toString()
+  const url = `${envConfig.apiBaseUrl}/api/recommendations/papers${queryString ? `?${queryString}` : ''}`
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to fetch paper recommendations (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to fetch recommendations.')
+  }
+}
+
+/**
+ * Discovers authors across user's corpus and generates collaboration matches.
+ */
+export async function discoverResearchers(
+  projectId?: string | null,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<ResearcherDiscoveryResponse> {
+  const params = new URLSearchParams()
+  if (projectId) params.append('project_id', projectId)
+
+  const queryString = params.toString()
+  const url = `${envConfig.apiBaseUrl}/api/researchers${queryString ? `?${queryString}` : ''}`
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to discover researchers (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to discover researchers.')
+  }
+}
+
+/**
+ * Retrieves detailed profile for an author in the user's corpus.
+ */
+export async function getResearcherProfile(
+  authorId: string,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<ResearcherProfile> {
+  const url = `${envConfig.apiBaseUrl}/api/researchers/${encodeURIComponent(authorId)}`
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 404) {
+      throw new ApiError('Researcher profile not found in your research corpus.', 404)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to fetch researcher profile (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to fetch researcher profile.')
+  }
+}
+
 
 
 

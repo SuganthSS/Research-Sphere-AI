@@ -277,6 +277,98 @@ class Neo4jService:
             logger.error("Failed to retrieve graph context from Neo4j: %s", exc)
             return {"entities": [], "relationships": [], "context_text": ""}
 
+    def get_shared_entities(
+        self,
+        source_paper_id: str,
+        target_paper_ids: List[str],
+    ) -> Dict[str, Dict[str, List[str]]]:
+        """Returns shared topics and methods between source paper and target papers."""
+        if not self.is_available() or not target_paper_ids:
+            return {}
+
+        driver = self._get_driver()
+        if not driver:
+            return {}
+
+        result_map: Dict[str, Dict[str, List[str]]] = {
+            pid: {"topics": [], "methods": []} for pid in target_paper_ids
+        }
+
+        try:
+            with driver.session() as session:
+                query = (
+                    "MATCH (p1:Paper {id: $source_id})-[r1]-(e)-[r2]-(p2:Paper) "
+                    "WHERE p2.id IN $target_ids AND p1.id <> p2.id "
+                    "RETURN p2.id as other_id, labels(e)[0] as e_label, e.name as e_name"
+                )
+                res = session.run(query, source_id=source_paper_id, target_ids=target_paper_ids)
+                for record in res:
+                    other_id = str(record["other_id"])
+                    e_label = record["e_label"]
+                    e_name = record["e_name"]
+                    if other_id in result_map and e_name:
+                        if e_label == "Topic" and e_name not in result_map[other_id]["topics"]:
+                            result_map[other_id]["topics"].append(e_name)
+                        elif e_label == "Method" and e_name not in result_map[other_id]["methods"]:
+                            result_map[other_id]["methods"].append(e_name)
+            return result_map
+        except Exception as exc:
+            logger.warning("Failed to query shared graph entities: %s", exc)
+            return {}
+
+    def get_corpus_researchers(
+        self,
+        allowed_paper_ids: List[str],
+    ) -> List[Dict[str, Any]]:
+        """Extracts authors and their associated topics/methods strictly from allowed papers."""
+        if not self.is_available() or not allowed_paper_ids:
+            return []
+
+        driver = self._get_driver()
+        if not driver:
+            return []
+
+        researchers = []
+        try:
+            with driver.session() as session:
+                query = (
+                    "MATCH (p:Paper)-[:AUTHORED_BY]->(a:Author) "
+                    "WHERE p.id IN $paper_ids "
+                    "RETURN a.id as author_id, a.name as author_name, "
+                    "collect(DISTINCT p.id) as paper_ids, collect(DISTINCT p.name) as paper_titles"
+                )
+                res = session.run(query, paper_ids=allowed_paper_ids)
+                for record in res:
+                    author_id = record["author_id"]
+                    author_name = record["author_name"]
+                    paper_ids = [str(pid) for pid in record["paper_ids"]]
+                    paper_titles = [str(pt) for pt in record["paper_titles"]]
+
+                    # Query topics & methods for this author within the allowed papers
+                    q_topics = (
+                        "MATCH (p:Paper)-[:AUTHORED_BY]->(a:Author {id: $author_id}) "
+                        "WHERE p.id IN $paper_ids "
+                        "OPTIONAL MATCH (p)-[:DISCUSSES]->(t:Topic) "
+                        "OPTIONAL MATCH (p)-[:USES_METHOD]->(m:Method) "
+                        "RETURN collect(DISTINCT t.name) as topics, collect(DISTINCT m.name) as methods"
+                    )
+                    sub_res = session.run(q_topics, author_id=author_id, paper_ids=allowed_paper_ids).single()
+                    topics = [t for t in (sub_res["topics"] if sub_res else []) if t]
+                    methods = [m for m in (sub_res["methods"] if sub_res else []) if m]
+
+                    researchers.append({
+                        "author_id": author_id,
+                        "name": author_name,
+                        "paper_ids": paper_ids,
+                        "paper_titles": paper_titles,
+                        "topics": topics,
+                        "methods": methods,
+                    })
+            return researchers
+        except Exception as exc:
+            logger.warning("Failed to query corpus researchers from Neo4j: %s", exc)
+            return []
+
     def close(self) -> None:
         """Closes Neo4j driver connection pool."""
         if self._driver:

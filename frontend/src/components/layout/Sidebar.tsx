@@ -8,6 +8,8 @@ import {
   ArrowLeftRight,
   Network,
   Compass,
+  TrendingUp,
+  Users,
   Activity,
   Settings,
   X,
@@ -48,6 +50,8 @@ const navigationGroups: NavGroup[] = [
       { label: 'Compare Papers', path: '/compare', icon: ArrowLeftRight },
       { label: 'Knowledge Graph', path: '/knowledge-graph', icon: Network },
       { label: 'Research Gaps', path: '/research-gaps', icon: Compass },
+      { label: 'Recommendations', path: '/recommendations', icon: TrendingUp },
+      { label: 'Researchers', path: '/researchers', icon: Users },
     ],
   },
   {

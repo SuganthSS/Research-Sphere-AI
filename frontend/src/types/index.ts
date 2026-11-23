@@ -423,6 +423,53 @@ export interface ResearchGapAnalysisResponse {
   updated_at: string
 }
 
+export interface PaperRecommendationItem {
+  paper_id: string
+  paper_title: string
+  project_id: string
+  project_name: string
+  relevance_score: number
+  shared_topics: string[]
+  shared_methods: string[]
+  recommendation_reason: string
+  source_paper_title?: string | null
+}
+
+export interface PaperRecommendationsResponse {
+  target_paper_id?: string | null
+  target_paper_title?: string | null
+  total_recommendations: number
+  recommendations: PaperRecommendationItem[]
+  message?: string | null
+}
+
+export interface ResearcherPaperBrief {
+  paper_id: string
+  paper_title: string
+  project_id: string
+  project_name: string
+}
+
+export interface ResearcherProfile {
+  author_id: string
+  name: string
+  papers_count: number
+  papers: ResearcherPaperBrief[]
+  topics: string[]
+  methods: string[]
+  relevance_score: number
+  match_label: string
+  collaboration_explanation: string
+}
+
+export interface ResearcherDiscoveryResponse {
+  total_researchers: number
+  researchers: ResearcherProfile[]
+  caution_notice: string
+  message?: string | null
+}
+
+
 
 
 

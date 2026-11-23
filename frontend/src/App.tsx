@@ -12,6 +12,8 @@ import { AssistantPage } from './pages/AssistantPage'
 import { ComparePage } from './pages/ComparePage'
 import { KnowledgeGraphPage } from './pages/KnowledgeGraphPage'
 import { ResearchGapsPage } from './pages/ResearchGapsPage'
+import { RecommendationsPage } from './pages/RecommendationsPage'
+import { ResearcherDiscoveryPage } from './pages/ResearcherDiscoveryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SystemStatusPage } from './pages/SystemStatusPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -40,6 +42,8 @@ export function App() {
               <Route path="compare" element={<ComparePage />} />
               <Route path="knowledge-graph" element={<KnowledgeGraphPage />} />
               <Route path="research-gaps" element={<ResearchGapsPage />} />
+              <Route path="recommendations" element={<RecommendationsPage />} />
+              <Route path="researchers" element={<ResearcherDiscoveryPage />} />
               <Route path="system-status" element={<SystemStatusPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
