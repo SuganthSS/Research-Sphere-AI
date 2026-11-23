@@ -90,6 +90,28 @@ class Settings(BaseModel):
         default_factory=lambda: int(os.getenv("EMBEDDING_BATCH_SIZE", "32"))
     )
 
+    # Groq LLM Configuration
+    GROQ_API_KEY: str | None = Field(
+        default_factory=lambda: os.getenv("GROQ_API_KEY", "") or None
+    )
+    GROQ_MODEL: str = Field(
+        default_factory=lambda: os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    )
+    GROQ_TIMEOUT_SECONDS: int = Field(
+        default_factory=lambda: int(os.getenv("GROQ_TIMEOUT_SECONDS", "30"))
+    )
+
+    # Grounded RAG Configuration
+    RAG_TOP_K: int = Field(
+        default_factory=lambda: int(os.getenv("RAG_TOP_K", "5"))
+    )
+    RAG_SIMILARITY_THRESHOLD: float = Field(
+        default_factory=lambda: float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.20"))
+    )
+    RAG_MAX_CONTEXT_CHARACTERS: int = Field(
+        default_factory=lambda: int(os.getenv("RAG_MAX_CONTEXT_CHARACTERS", "16000"))
+    )
+
     @property
     def storage_path(self) -> Path:
         """Returns resolved Path for local document storage."""

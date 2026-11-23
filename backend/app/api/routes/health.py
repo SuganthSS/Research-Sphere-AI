@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Response, status
-from app.schemas.health import HealthResponse, DatabaseHealthResponse
+from app.schemas.health import HealthResponse, DatabaseHealthResponse, GroqHealthResponse
 from app.db.health import check_db_connectivity
+from app.services.llm.service import llm_service
 
 router = APIRouter()
 
@@ -34,3 +35,17 @@ async def get_database_health(response: Response) -> DatabaseHealthResponse:
             status="unhealthy",
             database="unavailable",
         )
+
+
+@router.get("/health/groq", response_model=GroqHealthResponse)
+async def get_groq_health() -> GroqHealthResponse:
+    """Check Groq LLM configuration and readiness status without making expensive generation calls."""
+    stat = llm_service.get_status()
+    return GroqHealthResponse(
+        status="healthy" if stat["configured"] else "unconfigured",
+        provider=stat["provider"],
+        model=stat["model"],
+        configured=stat["configured"],
+        state=stat["status"],
+        message=stat["message"],
+    )

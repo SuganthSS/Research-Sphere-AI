@@ -63,6 +63,7 @@ class PaperExtractionResponse(BaseModel):
 
 
 class PaperChunkResponse(BaseModel):
+    id: Optional[uuid.UUID] = None
     chunk_index: int
     section_name: Optional[str] = None
     text: str

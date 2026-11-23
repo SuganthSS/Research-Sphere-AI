@@ -568,6 +568,7 @@ def get_paper_chunks(
 
     chunk_items = [
         PaperChunkResponse(
+            id=c.id,
             chunk_index=c.chunk_index,
             section_name=c.section_name,
             text=c.text,

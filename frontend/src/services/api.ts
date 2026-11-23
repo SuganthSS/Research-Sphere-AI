@@ -17,6 +17,10 @@ import type {
   PaperEmbeddingResponse,
   SemanticSearchRequest,
   SemanticSearchResponse,
+  AskAssistantRequest,
+  AskAssistantResponse,
+  AssistantStatusResponse,
+  GroqHealthResponse,
 } from '../types'
 
 export class ApiError extends Error {
@@ -1009,4 +1013,82 @@ export async function searchSemantic(
     throw new ApiError('Unable to reach backend API to perform semantic search.')
   }
 }
+
+/**
+ * POST /api/assistant/ask
+ * Asks a grounded scientific research question via semantic retrieval and Groq LLM.
+ */
+export async function askAssistant(
+  payload: AskAssistantRequest,
+  token?: string | null,
+  signal?: AbortSignal,
+): Promise<AskAssistantResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/assistant/ask`
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to interact with the AI Research Assistant.', 401)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    const detailMsg = body?.detail || `AI Assistant request failed (HTTP ${response.status})`
+    throw new ApiError(detailMsg, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API for AI Research Assistant.')
+  }
+}
+
+/**
+ * GET /api/assistant/status
+ */
+export async function getAssistantStatus(signal?: AbortSignal): Promise<AssistantStatusResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/assistant/status`
+  try {
+    const response = await fetch(url, { method: 'GET', signal })
+    if (response.ok) {
+      return await response.json()
+    }
+    throw new ApiError(`Status check failed (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach AI Assistant status endpoint.')
+  }
+}
+
+/**
+ * GET /api/health/groq
+ */
+export async function getGroqHealth(signal?: AbortSignal): Promise<GroqHealthResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/health/groq`
+  try {
+    const response = await fetch(url, { method: 'GET', signal })
+    if (response.ok) {
+      return await response.json()
+    }
+    throw new ApiError(`Groq health check failed (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach Groq health endpoint.')
+  }
+}
+
 

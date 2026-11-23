@@ -18,6 +18,9 @@ from app.services.document_processing import (
 )
 from app.services.embedding import EmbeddingService, embedding_service
 from app.services.qdrant_service import QdrantService, qdrant_service
+from app.services.llm import LLMService, llm_service, BaseLLMProvider, GroqProvider
+from app.services.context_builder import RAGContextBuilder, context_builder
+from app.services.rag_service import RAGService, rag_service
 
 __all__ = [
     "PaperStorageService",
@@ -41,4 +44,12 @@ __all__ = [
     "embedding_service",
     "QdrantService",
     "qdrant_service",
+    "LLMService",
+    "llm_service",
+    "BaseLLMProvider",
+    "GroqProvider",
+    "RAGContextBuilder",
+    "context_builder",
+    "RAGService",
+    "rag_service",
 ]

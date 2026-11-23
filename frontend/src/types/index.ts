@@ -128,6 +128,7 @@ export interface PaperListResponse {
 }
 
 export interface PaperChunk {
+  id?: string
   chunk_index: number
   section_name: string | null
   text: string
@@ -188,4 +189,53 @@ export interface SemanticSearchResponse {
   total_results: number
   results: SearchResultItem[]
 }
+
+export interface SourceCitationItem {
+  source_number: number
+  paper_id: string
+  paper_title: string
+  chunk_id: string
+  chunk_index: number
+  section_name: string
+  start_page: number
+  end_page: number
+  similarity_score: number
+  text: string
+}
+
+export interface AskAssistantRequest {
+  question: string
+  scope: 'paper' | 'project'
+  paper_id?: string | null
+  project_id?: string | null
+}
+
+export interface AskAssistantResponse {
+  question: string
+  answer: string
+  scope: string
+  paper_id?: string | null
+  project_id?: string | null
+  sources: SourceCitationItem[]
+  total_sources: number
+  insufficient_evidence: boolean
+}
+
+export interface AssistantStatusResponse {
+  provider: string
+  model: string
+  configured: boolean
+  status: string
+  message: string
+}
+
+export interface GroqHealthResponse {
+  status: string
+  provider: string
+  model: string
+  configured: boolean
+  state: string
+  message: string
+}
+
 

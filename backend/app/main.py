@@ -6,6 +6,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.papers import router as papers_router
 from app.api.routes.search import router as search_router
+from app.api.routes.assistant import router as assistant_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -35,6 +36,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
 app.include_router(projects_router, prefix="/api/projects", tags=["Projects"])
 app.include_router(papers_router, prefix="/api", tags=["Papers"])
 app.include_router(search_router, prefix="/api", tags=["Search"])
+app.include_router(assistant_router, prefix="/api", tags=["Assistant"])
 
 
 @app.get("/", tags=["Root"])

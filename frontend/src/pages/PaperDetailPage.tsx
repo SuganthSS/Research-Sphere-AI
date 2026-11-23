@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Download,
   Trash2,
@@ -39,9 +39,220 @@ import {
   ApiError,
 } from '../services/api'
 
+interface ChunkMatchResult {
+  before: string
+  match: string
+  after: string
+  isExact: boolean
+}
+
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function findChunkMatch(pageText: string, chunkText: string): ChunkMatchResult | null {
+  if (!pageText || !chunkText) return null
+  const trimmedChunk = chunkText.trim()
+  if (!trimmedChunk) return null
+
+  // 1. Direct exact substring match
+  const directIdx = pageText.indexOf(trimmedChunk)
+  if (directIdx !== -1) {
+    return {
+      before: pageText.slice(0, directIdx),
+      match: pageText.slice(directIdx, directIdx + trimmedChunk.length),
+      after: pageText.slice(directIdx + trimmedChunk.length),
+      isExact: true,
+    }
+  }
+
+  const words = trimmedChunk.split(/\s+/).filter(Boolean)
+  if (words.length < 3) {
+    try {
+      const pat = words.map(escapeRegExp).join('\\s+')
+      const m = new RegExp(pat).exec(pageText)
+      if (m) {
+        return {
+          before: pageText.slice(0, m.index),
+          match: m[0],
+          after: pageText.slice(m.index + m[0].length),
+          isExact: false,
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null
+  }
+
+  // 2. Full whitespace-normalized regex match (all words match on this page)
+  try {
+    const fullPattern = words.map(escapeRegExp).join('\\s+')
+    const fullRe = new RegExp(fullPattern)
+    const fullMatch = fullRe.exec(pageText)
+    if (fullMatch) {
+      let matchStart = fullMatch.index
+      let matchEnd = fullMatch.index + fullMatch[0].length
+      while (matchStart > 0 && /\S/.test(pageText[matchStart - 1])) {
+        matchStart--
+      }
+      while (matchEnd < pageText.length && /\S/.test(pageText[matchEnd])) {
+        matchEnd++
+      }
+      return {
+        before: pageText.slice(0, matchStart),
+        match: pageText.slice(matchStart, matchEnd),
+        after: pageText.slice(matchEnd),
+        isExact: false,
+      }
+    }
+  } catch {
+    // Regex too large or malformed
+  }
+
+  // 3. Multi-page chunk: chunk starts on this page, or has overlap slice
+  // If first word is a cut-off fragment (len <= 4), check if skipping it helps anchor
+  const startWordIndices = [0]
+  if (words.length > 4 && words[0].length <= 4) {
+    startWordIndices.push(1)
+  }
+
+  for (const startIdx of startWordIndices) {
+    const candidateWords = words.slice(startIdx)
+    const anchorLen = Math.min(5, candidateWords.length)
+    if (anchorLen < 4) continue
+    const anchorPat = candidateWords.slice(0, anchorLen).map(escapeRegExp).join('\\s+')
+    try {
+      const anchorRe = new RegExp(anchorPat)
+      const anchorMatch = anchorRe.exec(pageText)
+      if (anchorMatch) {
+        let matchStart = anchorMatch.index
+        let matchEnd = anchorMatch.index + anchorMatch[0].length
+
+        // Expand backward to whole-word boundary
+        while (matchStart > 0 && /\S/.test(pageText[matchStart - 1])) {
+          matchStart--
+        }
+
+        // Expand forward through remaining candidate words
+        for (let w = anchorLen; w < candidateWords.length; w++) {
+          const nextWord = candidateWords[w]
+          const remainingPage = pageText.slice(matchEnd)
+          const nextRe = new RegExp('^\\s*' + escapeRegExp(nextWord))
+          const nextMatch = nextRe.exec(remainingPage)
+          if (nextMatch) {
+            matchEnd += nextMatch[0].length
+          } else {
+            break
+          }
+        }
+
+        // Expand forward to whole-word boundary
+        while (matchEnd < pageText.length && /\S/.test(pageText[matchEnd])) {
+          matchEnd++
+        }
+
+        return {
+          before: pageText.slice(0, matchStart),
+          match: pageText.slice(matchStart, matchEnd),
+          after: pageText.slice(matchEnd),
+          isExact: false,
+        }
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  // 4. Multi-page chunk: chunk starts on previous page and ends on this page
+  for (let sLen = Math.min(words.length, 15); sLen >= 4; sLen--) {
+    const suffixWords = words.slice(-sLen)
+    const pat = suffixWords.map(escapeRegExp).join('\\s+')
+    try {
+      const re = new RegExp(pat)
+      const m = re.exec(pageText)
+      if (m) {
+        let matchStart = m.index
+        let matchEnd = m.index + m[0].length
+        while (matchStart > 0 && /\S/.test(pageText[matchStart - 1])) {
+          matchStart--
+        }
+        while (matchEnd < pageText.length && /\S/.test(pageText[matchEnd])) {
+          matchEnd++
+        }
+        return {
+          before: pageText.slice(0, matchStart),
+          match: pageText.slice(matchStart, matchEnd),
+          after: pageText.slice(matchEnd),
+          isExact: false,
+        }
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  // 5. Sliding window anchor (at least 6 consecutive words)
+  for (let w = 0; w <= words.length - 6; w += 3) {
+    const subWords = words.slice(w, w + 6)
+    const pat = subWords.map(escapeRegExp).join('\\s+')
+    try {
+      const re = new RegExp(pat)
+      const m = re.exec(pageText)
+      if (m) {
+        let matchStart = m.index
+        let matchEnd = m.index + m[0].length
+        while (matchStart > 0 && /\S/.test(pageText[matchStart - 1])) {
+          matchStart--
+        }
+        for (let fw = w + 6; fw < words.length; fw++) {
+          const nextWord = words[fw]
+          const rest = pageText.slice(matchEnd)
+          const nextM = new RegExp('^\\s*' + escapeRegExp(nextWord)).exec(rest)
+          if (nextM) matchEnd += nextM[0].length
+          else break
+        }
+        while (matchEnd < pageText.length && /\S/.test(pageText[matchEnd])) {
+          matchEnd++
+        }
+        return {
+          before: pageText.slice(0, matchStart),
+          match: pageText.slice(matchStart, matchEnd),
+          after: pageText.slice(matchEnd),
+          isExact: false,
+        }
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  return null
+}
+
 export const PaperDetailPage: React.FC = () => {
   const { paperId } = useParams<{ paperId: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  const tabParam = searchParams.get('tab')
+  const pageParam = searchParams.get('page')
+  const chunkParam = searchParams.get('chunk')
+  const citationParam = searchParams.get('citation')
+
+  const initialTab = (): 'text' | 'metadata' | 'processing' | 'search' => {
+    if (tabParam === 'extracted-text' || tabParam === 'text') return 'text'
+    if (tabParam === 'processing') return 'processing'
+    if (tabParam === 'search' || tabParam === 'semantic-search') return 'search'
+    if (tabParam === 'metadata') return 'metadata'
+    return 'text'
+  }
+
+  const parsePageParam = (): number | 'all' => {
+    if (!pageParam) return 'all'
+    const parsed = parseInt(pageParam, 10)
+    return isNaN(parsed) || parsed < 1 ? 'all' : parsed
+  }
 
   const [paper, setPaper] = useState<Paper | null>(null)
   const [project, setProject] = useState<Project | null>(null)
@@ -54,8 +265,8 @@ export const PaperDetailPage: React.FC = () => {
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractionError, setExtractionError] = useState<string | null>(null)
   const [extractionSuccessMsg, setExtractionSuccessMsg] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'text' | 'metadata' | 'processing' | 'search'>('text')
-  const [selectedPageFilter, setSelectedPageFilter] = useState<number | 'all'>('all')
+  const [activeTab, setActiveTab] = useState<'text' | 'metadata' | 'processing' | 'search'>(initialTab)
+  const [selectedPageFilter, setSelectedPageFilter] = useState<number | 'all'>(parsePageParam)
 
   // Processing (Chunking) State
   const [chunks, setChunks] = useState<PaperChunk[]>([])
@@ -318,6 +529,77 @@ export const PaperDetailPage: React.FC = () => {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }
+
+  // Synchronize tab from URL parameter if present
+  useEffect(() => {
+    if (tabParam === 'extracted-text' || tabParam === 'text') {
+      setActiveTab('text')
+    } else if (tabParam === 'processing') {
+      setActiveTab('processing')
+    } else if (tabParam === 'search' || tabParam === 'semantic-search') {
+      setActiveTab('search')
+    } else if (tabParam === 'metadata') {
+      setActiveTab('metadata')
+    }
+  }, [tabParam])
+
+  // Synchronize page filter from URL parameters or chunk start page
+  useEffect(() => {
+    if (pageParam) {
+      const parsed = parseInt(pageParam, 10)
+      if (!isNaN(parsed) && parsed >= 1) {
+        setSelectedPageFilter(parsed)
+      } else {
+        setSelectedPageFilter('all')
+      }
+    } else if (chunkParam && chunks.length > 0) {
+      const isNumeric = /^\d+$/.test(chunkParam.trim())
+      const chunkIdx = isNumeric ? parseInt(chunkParam, 10) : null
+      const targetChunk = chunks.find(
+        (c) => c.id === chunkParam || (chunkIdx !== null && c.chunk_index === chunkIdx)
+      )
+      if (targetChunk && targetChunk.start_page >= 1) {
+        setSelectedPageFilter(targetChunk.start_page)
+      }
+    } else if (!chunkParam) {
+      setSelectedPageFilter('all')
+    }
+  }, [pageParam, chunkParam, chunks])
+
+  // Resolve cited chunk and citation label
+  const citedChunk = useMemo(() => {
+    if (!chunkParam || chunks.length === 0) return null
+    const isNumeric = /^\d+$/.test(chunkParam.trim())
+    const chunkIdx = isNumeric ? parseInt(chunkParam, 10) : null
+    return (
+      chunks.find(
+        (c) => c.id === chunkParam || (chunkIdx !== null && c.chunk_index === chunkIdx)
+      ) || null
+    )
+  }, [chunkParam, chunks])
+
+  const citationLabel = useMemo(() => {
+    if (citationParam && citationParam.trim()) {
+      return `Cited Source [${citationParam.trim()}]`
+    }
+    return 'Cited Evidence'
+  }, [citationParam])
+
+  // Auto-scroll cited evidence into view
+  useEffect(() => {
+    if (isLoading || isLoadingPages) return
+
+    const timer = setTimeout(() => {
+      const target = document.getElementById('cited-evidence-target')
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      } else if (typeof selectedPageFilter === 'number' && pageRefs.current[selectedPageFilter]) {
+        pageRefs.current[selectedPageFilter]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 200)
+
+    return () => clearTimeout(timer)
+  }, [isLoading, isLoadingPages, selectedPageFilter, citedChunk])
 
   if (isLoading) {
     return (
@@ -588,6 +870,19 @@ export const PaperDetailPage: React.FC = () => {
             </button>
           )}
 
+          {/* Ask Research Assistant */}
+          {isEmbeddingDone && (
+            <Link
+              to={`/assistant?projectId=${paper.project_id}&paperId=${paper.id}&scope=paper`}
+              data-testid="detail-ask-assistant-btn"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              title="Ask AI Research Assistant about this paper"
+            >
+              <Bot className="w-3.5 h-3.5" />
+              <span>Ask Assistant</span>
+            </Link>
+          )}
+
           <button
             type="button"
             onClick={handleDownload}
@@ -670,6 +965,7 @@ export const PaperDetailPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('text')}
+          data-testid="tab-extracted-text"
           className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             activeTab === 'text'
               ? 'bg-[#2563EB] text-white shadow-xs'
@@ -1711,61 +2007,159 @@ export const PaperDetailPage: React.FC = () => {
                       <p className="text-xs text-[#64748B]">Loading preserved page contents...</p>
                     </div>
                   ) : displayedPages.length === 0 ? (
-                    <div className="p-8 text-center bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
-                      <p className="text-xs text-[#64748B]">No page contents found for this paper.</p>
+                    <div className="p-8 text-center bg-white rounded-xl border border-[#E2E8F0] shadow-xs space-y-3">
+                      <p className="text-xs text-[#64748B]">
+                        {typeof selectedPageFilter === 'number'
+                          ? `Page ${selectedPageFilter} is not available in this document (${pages.length} pages total).`
+                          : 'No page contents found for this paper.'}
+                      </p>
+                      {typeof selectedPageFilter === 'number' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPageFilter('all')}
+                          className="px-3 py-1.5 rounded-lg bg-[#2563EB] text-white text-xs font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
+                        >
+                          View All Pages
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-6" data-testid="pages-container">
-                      {displayedPages.map((page) => (
-                        <article
-                          key={page.id || page.page_number}
-                          ref={(el) => {
-                            pageRefs.current[page.page_number] = el
-                          }}
-                          data-testid={`extracted-page-card-${page.page_number}`}
-                          className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden transition-all hover:border-slate-300"
-                        >
-                          {/* Page Header */}
-                          <header className="bg-slate-50 px-5 py-3 border-b border-[#E2E8F0] flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span
-                                data-testid={`page-badge-${page.page_number}`}
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2563EB] text-white text-xs font-bold font-mono"
-                              >
-                                Page {page.page_number}
-                              </span>
-                              <span className="text-xs text-[#64748B]">
-                                of {paper.page_count ?? pages.length}
-                              </span>
-                            </div>
+                      {displayedPages.map((page) => {
+                        const isTargetPage =
+                          citedChunk != null
+                            ? page.page_number >= citedChunk.start_page && page.page_number <= citedChunk.end_page
+                            : (typeof selectedPageFilter === 'number' && page.page_number === selectedPageFilter && chunkParam != null)
 
-                            <div className="flex items-center gap-3 text-xs text-[#64748B]">
-                              <span
-                                data-testid={`page-char-count-${page.page_number}`}
-                                className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-[#0F172A]"
-                              >
-                                {page.character_count.toLocaleString()} chars
-                              </span>
-                            </div>
-                          </header>
+                        const matchRes = isTargetPage && citedChunk ? findChunkMatch(page.text, citedChunk.text) : null
 
-                          {/* Page Text Body */}
-                          <div className="p-6">
-                            {page.text.trim().length > 0 ? (
-                              <div
-                                data-testid={`page-text-content-${page.page_number}`}
-                                className="whitespace-pre-wrap font-sans text-xs sm:text-sm text-[#0F172A] leading-relaxed bg-slate-50/60 p-5 rounded-lg border border-slate-100 max-h-[600px] overflow-y-auto selection:bg-blue-100 selection:text-blue-900"
-                              >
-                                {page.text}
+                        return (
+                          <article
+                            key={page.id || page.page_number}
+                            ref={(el) => {
+                              pageRefs.current[page.page_number] = el
+                            }}
+                            data-testid={`extracted-page-card-${page.page_number}`}
+                            className={`bg-white rounded-xl border shadow-xs overflow-hidden transition-all ${
+                              isTargetPage && citedChunk
+                                ? 'border-amber-300 ring-2 ring-amber-200/60'
+                                : 'border-[#E2E8F0] hover:border-slate-300'
+                            }`}
+                          >
+                            {/* Page Header */}
+                            <header
+                              className={`px-5 py-3 border-b flex items-center justify-between ${
+                                isTargetPage && citedChunk
+                                  ? 'bg-amber-50/70 border-amber-200'
+                                  : 'bg-slate-50 border-[#E2E8F0]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  data-testid={`page-badge-${page.page_number}`}
+                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2563EB] text-white text-xs font-bold font-mono"
+                                >
+                                  Page {page.page_number}
+                                </span>
+                                <span className="text-xs text-[#64748B]">
+                                  of {paper.page_count ?? pages.length}
+                                </span>
+                                {isTargetPage && citedChunk && (
+                                  <span
+                                    data-testid="cited-page-indicator"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                                  >
+                                    <Sparkles className="w-3 h-3 text-amber-600" />
+                                    <span>{citationLabel}</span>
+                                  </span>
+                                )}
                               </div>
-                            ) : (
-                              <div className="p-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200 text-[#64748B] text-xs">
-                                <em>This page contains no extractable text (e.g. blank page or image-only).</em>
+
+                              <div className="flex items-center gap-3 text-xs text-[#64748B]">
+                                <span
+                                  data-testid={`page-char-count-${page.page_number}`}
+                                  className="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-[#0F172A]"
+                                >
+                                  {page.character_count.toLocaleString()} chars
+                                </span>
                               </div>
-                            )}
-                          </div>
-                        </article>
-                      ))}
+                            </header>
+
+                            {/* Page Text Body */}
+                            <div className="p-6">
+                              {page.text.trim().length > 0 ? (
+                                matchRes ? (
+                                  <div
+                                    data-testid={`page-text-content-${page.page_number}`}
+                                    className="whitespace-pre-wrap font-sans text-xs sm:text-sm text-[#0F172A] leading-relaxed bg-slate-50/60 p-5 rounded-lg border border-slate-100 max-h-[600px] overflow-y-auto selection:bg-blue-100 selection:text-blue-900"
+                                  >
+                                    {matchRes.before}
+                                    <mark
+                                      id="cited-evidence-target"
+                                      data-testid="cited-evidence-highlight"
+                                      className="block bg-amber-50 text-amber-950 font-sans p-3.5 my-2.5 rounded-lg border-l-4 border-amber-500 shadow-xs ring-1 ring-amber-300/70 leading-relaxed"
+                                    >
+                                      <div className="flex items-center gap-2 pb-2 mb-2 border-b border-amber-200 text-xs font-bold text-amber-900 tracking-wide">
+                                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                        <span data-testid="citation-indicator-label">{citationLabel}</span>
+                                        {citedChunk?.section_name && (
+                                          <span className="text-amber-700 font-medium">
+                                            · #{citedChunk.section_name}
+                                          </span>
+                                        )}
+                                        <span className="text-[11px] font-normal text-amber-700/80 ml-auto hidden sm:inline">
+                                          Exact Supporting Evidence
+                                        </span>
+                                      </div>
+                                      <span className="text-xs sm:text-sm font-normal text-amber-950 whitespace-pre-wrap">
+                                        {matchRes.match}
+                                      </span>
+                                    </mark>
+                                    {matchRes.after}
+                                  </div>
+                                ) : isTargetPage && citedChunk ? (
+                                  <div
+                                    data-testid={`page-text-content-${page.page_number}`}
+                                    className="whitespace-pre-wrap font-sans text-xs sm:text-sm text-[#0F172A] leading-relaxed bg-slate-50/60 p-5 rounded-lg border border-slate-100 max-h-[600px] overflow-y-auto selection:bg-blue-100 selection:text-blue-900"
+                                  >
+                                    <div
+                                      id="cited-evidence-target"
+                                      data-testid="cited-evidence-banner"
+                                      className="mb-4 p-3.5 rounded-lg bg-amber-50 border-l-4 border-amber-500 border border-amber-200 text-amber-950 text-xs shadow-2xs"
+                                    >
+                                      <div className="flex items-center gap-2 font-bold text-amber-900 pb-1">
+                                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                                        <span data-testid="citation-indicator-label">{citationLabel}</span>
+                                        {citedChunk?.section_name && (
+                                          <span className="text-amber-700 font-medium">
+                                            · #{citedChunk.section_name}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-amber-800 text-[11px] sm:text-xs pl-6">
+                                        Supporting evidence for chunk #{citedChunk.chunk_index} ({citedChunk.section_name})
+                                        is located on this page.
+                                      </p>
+                                    </div>
+                                    {page.text}
+                                  </div>
+                                ) : (
+                                  <div
+                                    data-testid={`page-text-content-${page.page_number}`}
+                                    className="whitespace-pre-wrap font-sans text-xs sm:text-sm text-[#0F172A] leading-relaxed bg-slate-50/60 p-5 rounded-lg border border-slate-100 max-h-[600px] overflow-y-auto selection:bg-blue-100 selection:text-blue-900"
+                                  >
+                                    {page.text}
+                                  </div>
+                                )
+                              ) : (
+                                <div className="p-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200 text-[#64748B] text-xs">
+                                  <em>This page contains no extractable text (e.g. blank page or image-only).</em>
+                                </div>
+                              )}
+                            </div>
+                          </article>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
