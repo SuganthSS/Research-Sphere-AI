@@ -26,11 +26,17 @@ from app.schemas.paper import (
     PaperProcessingResponse,
     PaperEmbeddingResponse,
 )
+from app.schemas.summary import PaperSummaryResponse
 from app.services.paper_storage import paper_storage
 from app.services.pdf_extraction import pdf_extractor, PDFExtractionError
 from app.services.document_processing import document_processor, DocumentProcessingError
 from app.services.embedding import embedding_service
 from app.services.qdrant_service import qdrant_service
+from app.services.paper_summary_service import (
+    paper_summary_service,
+    PaperPreconditionError,
+    PaperSummaryError,
+)
 from app.models.paper_chunk import PaperChunk
 
 router = APIRouter()
@@ -670,3 +676,82 @@ def embed_paper_chunks(
         embedded_at=paper.embedded_at,
         message=f"Successfully generated embeddings and indexed {len(chunks)} chunks in vector store.",
     )
+
+
+@router.post(
+    "/papers/{paper_id}/summary",
+    response_model=PaperSummaryResponse,
+    summary="Generate or regenerate a structured 6-dimensional summary for a research paper",
+)
+def generate_paper_summary(
+    paper_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> PaperSummaryResponse:
+    """Generates or regenerates an evidence-grounded structured scientific summary.
+
+    Requires chunking_status == 'completed' and embedding_status == 'completed'.
+    Ownership is strictly enforced.
+    """
+    stmt = select(Paper).where(Paper.id == paper_id, Paper.user_id == current_user.id)
+    paper = db.execute(stmt).scalar_one_or_none()
+    if not paper:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Research paper not found.",
+        )
+
+    try:
+        return paper_summary_service.generate_summary(
+            paper_id=paper_id,
+            user_id=current_user.id,
+            db=db,
+        )
+    except PaperPreconditionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+    except PaperSummaryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate summary: {str(exc)}",
+        )
+
+
+@router.get(
+    "/papers/{paper_id}/summary",
+    response_model=PaperSummaryResponse,
+    summary="Retrieve the existing structured summary for a research paper",
+)
+def get_paper_summary(
+    paper_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> PaperSummaryResponse:
+    """Retrieves an existing structured summary for a research paper if generated."""
+    stmt = select(Paper).where(Paper.id == paper_id, Paper.user_id == current_user.id)
+    paper = db.execute(stmt).scalar_one_or_none()
+    if not paper:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Research paper not found.",
+        )
+
+    summary = paper_summary_service.get_summary(
+        paper_id=paper_id,
+        user_id=current_user.id,
+        db=db,
+    )
+    if not summary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No summary has been generated for this paper yet.",
+        )
+    return summary
+

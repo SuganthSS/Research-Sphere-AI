@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.project import Project
     from app.models.paper_page import PaperPage
     from app.models.paper_chunk import PaperChunk
+    from app.models.paper_summary import PaperSummary
 
 
 class Paper(Base):
@@ -154,6 +155,12 @@ class Paper(Base):
         back_populates="paper",
         cascade="all, delete-orphan",
         order_by="PaperChunk.chunk_index",
+    )
+    summary: Mapped["PaperSummary | None"] = relationship(
+        "PaperSummary",
+        back_populates="paper",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (

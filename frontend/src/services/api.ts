@@ -21,6 +21,7 @@ import type {
   AskAssistantResponse,
   AssistantStatusResponse,
   GroqHealthResponse,
+  PaperSummaryResponse,
 } from '../types'
 
 export class ApiError extends Error {
@@ -1090,5 +1091,82 @@ export async function getGroqHealth(signal?: AbortSignal): Promise<GroqHealthRes
     throw new ApiError('Unable to reach Groq health endpoint.')
   }
 }
+
+/**
+ * GET /api/papers/{paper_id}/summary
+ */
+export async function getPaperSummary(
+  paperId: string,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperSummaryResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/papers/${paperId}/summary`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 404) {
+      throw new ApiError('No summary has been generated for this paper yet.', 404)
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to access paper summary.', 401)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to fetch summary (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API for paper summary.')
+  }
+}
+
+/**
+ * POST /api/papers/{paper_id}/summary
+ */
+export async function generatePaperSummary(
+  paperId: string,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<PaperSummaryResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/papers/${paperId}/summary`
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to generate paper summary.', 401)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to generate summary (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API to generate paper summary.')
+  }
+}
+
 
 

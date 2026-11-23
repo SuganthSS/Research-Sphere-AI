@@ -23,8 +23,19 @@ import {
   Search,
   Database,
   ExternalLink,
+  Target,
+  TrendingUp,
+  AlertTriangle,
 } from 'lucide-react'
-import type { Paper, Project, PaperPage, PaperChunk, SearchResultItem } from '../types'
+import type {
+  Paper,
+  Project,
+  PaperPage,
+  PaperChunk,
+  SearchResultItem,
+  PaperSummaryResponse,
+  SummaryCitation,
+} from '../types'
 import {
   getPaper,
   getProjects,
@@ -36,6 +47,8 @@ import {
   getPaperChunks,
   embedPaper,
   searchSemantic,
+  getPaperSummary,
+  generatePaperSummary,
   ApiError,
 } from '../services/api'
 
@@ -240,7 +253,8 @@ export const PaperDetailPage: React.FC = () => {
   const chunkParam = searchParams.get('chunk')
   const citationParam = searchParams.get('citation')
 
-  const initialTab = (): 'text' | 'metadata' | 'processing' | 'search' => {
+  const initialTab = (): 'text' | 'metadata' | 'processing' | 'search' | 'summary' => {
+    if (tabParam === 'summary') return 'summary'
     if (tabParam === 'extracted-text' || tabParam === 'text') return 'text'
     if (tabParam === 'processing') return 'processing'
     if (tabParam === 'search' || tabParam === 'semantic-search') return 'search'
@@ -265,7 +279,7 @@ export const PaperDetailPage: React.FC = () => {
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractionError, setExtractionError] = useState<string | null>(null)
   const [extractionSuccessMsg, setExtractionSuccessMsg] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'text' | 'metadata' | 'processing' | 'search'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'text' | 'metadata' | 'processing' | 'search' | 'summary'>(initialTab)
   const [selectedPageFilter, setSelectedPageFilter] = useState<number | 'all'>(parsePageParam)
 
   // Processing (Chunking) State
@@ -288,6 +302,12 @@ export const PaperDetailPage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([])
   const [searchError, setSearchError] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
+
+  // Paper Summary State (Module 7.1)
+  const [summary, setSummary] = useState<PaperSummaryResponse | null>(null)
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [summarySuccessMsg, setSummarySuccessMsg] = useState<string | null>(null)
 
   // Actions state
   const [isDownloading, setIsDownloading] = useState(false)
@@ -329,6 +349,16 @@ export const PaperDetailPage: React.FC = () => {
           } catch {
             setChunks([])
             setChunkSections([])
+          }
+        }
+
+        // If chunking and embedding are completed, fetch summary if available
+        if (paperData.chunking_status === 'completed' && paperData.embedding_status === 'completed') {
+          try {
+            const summaryData = await getPaperSummary(id)
+            setSummary(summaryData)
+          } catch {
+            setSummary(null)
           }
         }
       } else {
@@ -482,6 +512,34 @@ export const PaperDetailPage: React.FC = () => {
     }
   }
 
+  const handleGenerateSummary = async () => {
+    if (!paper) return
+    setIsGeneratingSummary(true)
+    setSummaryError(null)
+    setSummarySuccessMsg(null)
+
+    try {
+      const result = await generatePaperSummary(paper.id)
+      setSummary(result)
+      setSummarySuccessMsg('Structured scientific summary generated successfully.')
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setSummaryError(err.message)
+      } else {
+        setSummaryError('An unexpected error occurred while generating the summary.')
+      }
+    } finally {
+      setIsGeneratingSummary(false)
+    }
+  }
+
+  const handleCitationClick = (citation: SummaryCitation) => {
+    if (!paper) return
+    setActiveTab('text')
+    setSelectedPageFilter(citation.start_page)
+    navigate(`/papers/${paper.id}?tab=extracted-text&page=${citation.start_page}&chunk=${citation.chunk_id}&citation=${citation.source_number}`)
+  }
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -538,6 +596,8 @@ export const PaperDetailPage: React.FC = () => {
       setActiveTab('processing')
     } else if (tabParam === 'search' || tabParam === 'semantic-search') {
       setActiveTab('search')
+    } else if (tabParam === 'summary') {
+      setActiveTab('summary')
     } else if (tabParam === 'metadata') {
       setActiveTab('metadata')
     }
@@ -1033,6 +1093,29 @@ export const PaperDetailPage: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveTab('summary')}
+          data-testid="tab-summary"
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === 'summary'
+              ? 'bg-[#2563EB] text-white shadow-xs'
+              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Summary</span>
+          {summary && (
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeTab === 'summary' ? 'bg-blue-700 text-white' : 'bg-emerald-100 text-emerald-700'
+              }`}
+            >
+              Ready
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('metadata')}
           className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             activeTab === 'metadata'
@@ -1049,7 +1132,295 @@ export const PaperDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Main Content Area (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
-          {activeTab === 'search' ? (
+          {activeTab === 'summary' ? (
+            /* ==================== SUMMARY TAB (MODULE 7.1) ==================== */
+            <div className="space-y-6" data-testid="summary-tab-container">
+              {/* Notifications */}
+              {summarySuccessMsg && (
+                <div
+                  data-testid="summary-success-banner"
+                  className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-medium">{summarySuccessMsg}</span>
+                  </div>
+                  <button type="button" onClick={() => setSummarySuccessMsg(null)} className="text-emerald-600 hover:text-emerald-800 p-1">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {summaryError && (
+                <div
+                  data-testid="summary-error-banner"
+                  className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <div>
+                      <span className="font-semibold block">Summary Generation Error:</span>
+                      <span>{summaryError}</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setSummaryError(null)} className="text-rose-600 hover:text-rose-800 p-1">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Preconditions */}
+              {!isExtractionDone ? (
+                <div className="bg-white rounded-2xl border border-amber-200 shadow-xs p-8 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                    <AlertCircle className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-bold text-[#0F172A]">Text Extraction Required</h2>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      Structured summarization requires text extraction to be completed first. Switch to "Extracted Text" to extract content.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('text')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Go to Extracted Text</span>
+                  </button>
+                </div>
+              ) : !isChunkingDone ? (
+                <div className="bg-white rounded-2xl border border-amber-200 shadow-xs p-8 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                    <Cpu className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-bold text-[#0F172A]">Document Processing Required</h2>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      Structured summarization requires document chunking to be completed first. Switch to the "Document Processing" tab to process this paper.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('processing')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors cursor-pointer"
+                  >
+                    <Cpu className="w-3.5 h-3.5" />
+                    <span>Go to Document Processing</span>
+                  </button>
+                </div>
+              ) : !isEmbeddingDone ? (
+                <div className="bg-white rounded-2xl border border-purple-200 shadow-xs p-8 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center mx-auto">
+                    <Database className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-bold text-[#0F172A]">Semantic Indexing Required</h2>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      Structured summarization relies on multi-dimensional semantic retrieval across paper sections. Generate embeddings in the Semantic Search tab first.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('search')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors cursor-pointer"
+                  >
+                    <Database className="w-3.5 h-3.5" />
+                    <span>Go to Semantic Search</span>
+                  </button>
+                </div>
+              ) : isGeneratingSummary ? (
+                /* Generating in progress */
+                <div
+                  data-testid="summary-in-progress-card"
+                  className="bg-white rounded-2xl border border-indigo-200 shadow-xs p-10 text-center space-y-4"
+                >
+                  <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto" />
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-[#0F172A]">Generating Grounded Summary...</h3>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      Retrieving multi-dimensional evidence across paper sections and synthesizing structured 6-dimensional scientific summary using Groq LLM.
+                    </p>
+                  </div>
+                  <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold animate-pulse font-mono">
+                    status: analyzing evidence & generating
+                  </span>
+                </div>
+              ) : !summary ? (
+                /* Not yet generated */
+                <div
+                  data-testid="summary-not-started-card"
+                  className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-8 sm:p-10 text-center space-y-6"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-xs">
+                    <Sparkles className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2 max-w-lg mx-auto">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Structured Summary: Not Generated</span>
+                    </div>
+                    <h2 className="text-xl font-bold text-[#0F172A] tracking-tight">
+                      Generate Evidence-Grounded Scientific Summary
+                    </h2>
+                    <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed">
+                      Synthesize this paper across 6 core scientific dimensions: Research Objective, Methodology, Dataset & Setup, Key Findings, Limitations, and Future Work. Every statement is strictly grounded in verifiable source citations.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateSummary}
+                    disabled={isGeneratingSummary}
+                    data-testid="generate-summary-btn"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Generate Summary</span>
+                  </button>
+                </div>
+              ) : (
+                /* Completed Summary View */
+                <div className="space-y-6" data-testid="summary-content-container">
+                  {/* Summary Control Header */}
+                  <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[#0F172A] text-sm">6-Dimensional Scientific Summary</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Grounded
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#64748B]">
+                        Model: <span className="font-mono font-medium text-slate-700">{summary.model_name}</span> ({summary.model_provider}) • Last updated: {new Date(summary.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerateSummary}
+                      disabled={isGeneratingSummary}
+                      data-testid="regenerate-summary-btn"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#0F172A] text-xs font-semibold border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingSummary ? 'animate-spin' : ''}`} />
+                      <span>Regenerate Summary</span>
+                    </button>
+                  </div>
+
+                  {/* 6 Structured Scientific Cards */}
+                  <div className="space-y-4">
+                    {[
+                      {
+                        key: 'objective',
+                        title: 'Research Objective / Problem',
+                        icon: Target,
+                        accent: 'border-blue-200 bg-blue-50/50 text-blue-700',
+                        data: summary.summary.objective,
+                        testId: 'summary-card-objective',
+                      },
+                      {
+                        key: 'methodology',
+                        title: 'Methodology / Approach',
+                        icon: Cpu,
+                        accent: 'border-purple-200 bg-purple-50/50 text-purple-700',
+                        data: summary.summary.methodology,
+                        testId: 'summary-card-methodology',
+                      },
+                      {
+                        key: 'dataset_setup',
+                        title: 'Dataset & Experimental Setup',
+                        icon: Database,
+                        accent: 'border-cyan-200 bg-cyan-50/50 text-cyan-700',
+                        data: summary.summary.dataset_setup,
+                        testId: 'summary-card-dataset_setup',
+                      },
+                      {
+                        key: 'key_findings',
+                        title: 'Key Findings & Results',
+                        icon: TrendingUp,
+                        accent: 'border-emerald-200 bg-emerald-50/50 text-emerald-700',
+                        data: summary.summary.key_findings,
+                        testId: 'summary-card-key_findings',
+                      },
+                      {
+                        key: 'limitations',
+                        title: 'Limitations & Constraints',
+                        icon: AlertTriangle,
+                        accent: 'border-amber-200 bg-amber-50/50 text-amber-700',
+                        data: summary.summary.limitations,
+                        testId: 'summary-card-limitations',
+                      },
+                      {
+                        key: 'future_work',
+                        title: 'Future Work & Research Directions',
+                        icon: Sparkles,
+                        accent: 'border-indigo-200 bg-indigo-50/50 text-indigo-700',
+                        data: summary.summary.future_work,
+                        testId: 'summary-card-future_work',
+                      },
+                    ].map((dim) => (
+                      <section
+                        key={dim.key}
+                        data-testid={dim.testId}
+                        className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 space-y-3.5 hover:border-slate-300 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg border ${dim.accent}`}>
+                              <dim.icon className="w-4 h-4 shrink-0" />
+                            </div>
+                            <h3 className="text-sm font-bold text-[#0F172A]">{dim.title}</h3>
+                          </div>
+                          {dim.data.citations && dim.data.citations.length > 0 && (
+                            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                              {dim.data.citations.length} cited source{dim.data.citations.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+
+                        {dim.data.summary === 'Not clearly stated in the paper.' ? (
+                          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-[#64748B] italic flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                            <span>Not clearly stated in the paper.</span>
+                          </div>
+                        ) : (
+                          <p className="text-xs sm:text-sm text-[#334155] leading-relaxed whitespace-pre-wrap">
+                            {dim.data.summary}
+                          </p>
+                        )}
+
+                        {dim.data.citations && dim.data.citations.length > 0 && (
+                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] block">
+                              Supporting Evidence
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              {dim.data.citations.map((cite, cIdx) => (
+                                <button
+                                  key={`${cite.chunk_id}-${cIdx}`}
+                                  type="button"
+                                  onClick={() => handleCitationClick(cite)}
+                                  data-testid={`citation-btn-${dim.key}-${cite.source_number}`}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-all cursor-pointer group shadow-2xs"
+                                  title={`Jump to Page ${cite.start_page} supporting evidence`}
+                                >
+                                  <span className="font-bold font-mono">[{cite.source_number}]</span>
+                                  <span>Page {cite.start_page}</span>
+                                  <span className="text-blue-400">•</span>
+                                  <span className="text-blue-600">{cite.section_name}</span>
+                                  <ExternalLink className="w-3 h-3 text-blue-500 opacity-60 group-hover:opacity-100 ml-0.5" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </section>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'search' ? (
             /* ==================== SEMANTIC SEARCH TAB ==================== */
             <div className="space-y-6" data-testid="semantic-search-container">
               {/* Notifications */}

@@ -238,4 +238,39 @@ export interface GroqHealthResponse {
   message: string
 }
 
+export interface SummaryCitation {
+  source_number: number
+  paper_id: string
+  chunk_id: string
+  chunk_index: number
+  section_name: string
+  start_page: number
+  end_page: number
+}
+
+export interface SummarySection {
+  summary: string
+  citations: SummaryCitation[]
+}
+
+export interface StructuredSummary {
+  objective: SummarySection
+  methodology: SummarySection
+  dataset_setup: SummarySection
+  key_findings: SummarySection
+  limitations: SummarySection
+  future_work: SummarySection
+}
+
+export interface PaperSummaryResponse {
+  id: string
+  paper_id: string
+  summary: StructuredSummary
+  model_provider: string
+  model_name: string
+  created_at: string
+  updated_at: string
+}
+
+
 
