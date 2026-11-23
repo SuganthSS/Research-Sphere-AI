@@ -117,6 +117,29 @@ class Paper(Base):
         default=None,
     )
 
+    # Embedding / vectorization metadata (populated by Module 5)
+    embedding_status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="not_started",
+        server_default="not_started",
+    )
+    embedded_chunk_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None,
+    )
+    embedded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+    )
+    embedding_error: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        default=None,
+    )
+
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="papers")
     project: Mapped["Project"] = relationship("Project", back_populates="papers")

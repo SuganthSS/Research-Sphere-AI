@@ -14,6 +14,9 @@ import type {
   PaperListResponse,
   PaperChunksListResponse,
   PaperProcessingResponse,
+  PaperEmbeddingResponse,
+  SemanticSearchRequest,
+  SemanticSearchResponse,
 } from '../types'
 
 export class ApiError extends Error {
@@ -905,6 +908,105 @@ export async function getPaperChunks(
     if (err instanceof ApiError) throw err
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw new ApiError('Unable to reach backend API to fetch paper chunks.')
+  }
+}
+
+/**
+ * POST /api/papers/{paperId}/embed
+ * Vectorizes all chunks of a paper using SentenceTransformers and indexes into Qdrant.
+ */
+export async function embedPaper(
+  paperId: string,
+  token?: string | null,
+  signal?: AbortSignal,
+): Promise<PaperEmbeddingResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/papers/${paperId}/embed`
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to generate embeddings.', 401)
+    }
+
+    if (response.status === 404) {
+      throw new ApiError('Research paper not found.', 404)
+    }
+
+    if (response.status === 422) {
+      const body = await response.json().catch(() => ({}))
+      throw new ApiError(body?.detail || 'Document chunking must be completed before generating embeddings.', 422)
+    }
+
+    throw new ApiError(`Failed to generate embeddings (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API to generate embeddings.')
+  }
+}
+
+/**
+ * POST /api/search/semantic
+ * Executes semantic similarity search across embedded paper chunks.
+ */
+export async function searchSemantic(
+  payload: SemanticSearchRequest,
+  token?: string | null,
+  signal?: AbortSignal,
+): Promise<SemanticSearchResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/search/semantic`
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Authentication required to perform semantic search.', 401)
+    }
+
+    if (response.status === 404) {
+      const body = await response.json().catch(() => ({}))
+      throw new ApiError(body?.detail || 'Target research project or paper not found.', 404)
+    }
+
+    if (response.status === 422) {
+      const body = await response.json().catch(() => ({}))
+      let msg = 'Invalid search query parameters.'
+      if (Array.isArray(body.detail) && body.detail.length > 0) {
+        msg = body.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(' ') || msg
+      }
+      throw new ApiError(msg, 422)
+    }
+
+    throw new ApiError(`Semantic search request failed (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to reach backend API to perform semantic search.')
   }
 }
 

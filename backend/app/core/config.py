@@ -74,6 +74,22 @@ class Settings(BaseModel):
         default_factory=lambda: int(os.getenv("MAX_UPLOAD_SIZE_BYTES", "52428800"))  # 50MB
     )
 
+    # Vector Database (Qdrant) Configuration
+    QDRANT_URL: str = Field(
+        default_factory=lambda: os.getenv("QDRANT_URL", "http://localhost:6333")
+    )
+    QDRANT_COLLECTION: str = Field(
+        default_factory=lambda: os.getenv("QDRANT_COLLECTION", "researchsphere_chunks")
+    )
+
+    # Embedding Model Configuration
+    EMBEDDING_MODEL: str = Field(
+        default_factory=lambda: os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    )
+    EMBEDDING_BATCH_SIZE: int = Field(
+        default_factory=lambda: int(os.getenv("EMBEDDING_BATCH_SIZE", "32"))
+    )
+
     @property
     def storage_path(self) -> Path:
         """Returns resolved Path for local document storage."""

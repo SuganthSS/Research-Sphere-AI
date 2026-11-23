@@ -24,10 +24,13 @@ from app.schemas.paper import (
     PaperChunkResponse,
     PaperChunksListResponse,
     PaperProcessingResponse,
+    PaperEmbeddingResponse,
 )
 from app.services.paper_storage import paper_storage
 from app.services.pdf_extraction import pdf_extractor, PDFExtractionError
 from app.services.document_processing import document_processor, DocumentProcessingError
+from app.services.embedding import embedding_service
+from app.services.qdrant_service import qdrant_service
 from app.models.paper_chunk import PaperChunk
 
 router = APIRouter()
@@ -96,6 +99,10 @@ def _build_paper_response(paper: Paper, project_name: str | None = None) -> Pape
         chunk_count=paper.chunk_count,
         chunked_at=paper.chunked_at,
         chunking_error=paper.chunking_error,
+        embedding_status=getattr(paper, "embedding_status", "not_started"),
+        embedded_chunk_count=getattr(paper, "embedded_chunk_count", None),
+        embedded_at=getattr(paper, "embedded_at", None),
+        embedding_error=getattr(paper, "embedding_error", None),
         created_at=paper.created_at,
         updated_at=paper.updated_at,
     )
@@ -434,7 +441,10 @@ def delete_paper(
     # 1. Delete physical stored file
     paper_storage.delete(paper.stored_filename)
 
-    # 2. Delete database record (cascades automatically to PaperPage rows via ondelete="CASCADE")
+    # 2. Delete vectors from Qdrant
+    qdrant_service.delete_paper_vectors(paper.id)
+
+    # 3. Delete database record (cascades automatically to PaperPage rows via ondelete="CASCADE")
     db.delete(paper)
     db.commit()
 
@@ -479,10 +489,17 @@ def process_paper_document(
             ),
         )
 
-    # 3. Mark processing in progress
+    # 3. Mark processing in progress and invalidate old embeddings
     paper.chunking_status = "processing"
     paper.chunking_error = None
+    paper.embedding_status = "not_started"
+    paper.embedded_chunk_count = None
+    paper.embedded_at = None
+    paper.embedding_error = None
     db.commit()
+
+    # Clear any previous Qdrant vectors for this paper
+    qdrant_service.delete_paper_vectors(paper.id)
 
     # 4. Run processing pipeline (reload paper to get pages via relationship)
     db.refresh(paper)
@@ -567,4 +584,88 @@ def get_paper_chunks(
         chunk_count=len(chunk_items),
         sections=sections,
         chunks=chunk_items,
+    )
+
+
+@router.post(
+    "/papers/{paper_id}/embed",
+    response_model=PaperEmbeddingResponse,
+    summary="Generate vector embeddings for all chunks of a processed paper and index in Qdrant",
+)
+def embed_paper_chunks(
+    paper_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> PaperEmbeddingResponse:
+    """Vectorize all chunks of a paper using SentenceTransformers and index into Qdrant vector store.
+
+    Requires chunking_status == 'completed'. Ownership is strictly enforced.
+    """
+    stmt = (
+        select(Paper)
+        .where(Paper.id == paper_id, Paper.user_id == current_user.id)
+    )
+    paper = db.execute(stmt).scalar_one_or_none()
+    if not paper:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Research paper not found.",
+        )
+
+    if paper.chunking_status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Document chunking must be completed before generating embeddings. "
+                f"Current chunking status: '{paper.chunking_status}'. Run /process first."
+            ),
+        )
+
+    chunks_stmt = (
+        select(PaperChunk)
+        .where(PaperChunk.paper_id == paper.id)
+        .order_by(PaperChunk.chunk_index.asc())
+    )
+    chunks = db.execute(chunks_stmt).scalars().all()
+    if not chunks:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No document chunks found to vectorize. Re-run /process first.",
+        )
+
+    paper.embedding_status = "processing"
+    paper.embedding_error = None
+    db.commit()
+
+    try:
+        texts = [c.text for c in chunks]
+        embeddings = embedding_service.embed_texts(texts)
+        qdrant_service.upsert_chunks(
+            user_id=paper.user_id,
+            project_id=paper.project_id,
+            paper_id=paper.id,
+            chunks=chunks,
+            embeddings=embeddings,
+        )
+        now = datetime.now(timezone.utc)
+        paper.embedding_status = "completed"
+        paper.embedded_chunk_count = len(chunks)
+        paper.embedded_at = now
+        paper.embedding_error = None
+        db.commit()
+    except Exception as exc:
+        paper.embedding_status = "failed"
+        paper.embedding_error = str(exc)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate embeddings and index chunks: {str(exc)}",
+        )
+
+    return PaperEmbeddingResponse(
+        paper_id=paper.id,
+        embedding_status="completed",
+        embedded_chunk_count=len(chunks),
+        embedded_at=paper.embedded_at,
+        message=f"Successfully generated embeddings and indexed {len(chunks)} chunks in vector store.",
     )

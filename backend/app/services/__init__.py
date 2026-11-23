@@ -16,6 +16,8 @@ from app.services.document_processing import (
     DocumentProcessingError,
     ProcessingResult,
 )
+from app.services.embedding import EmbeddingService, embedding_service
+from app.services.qdrant_service import QdrantService, qdrant_service
 
 __all__ = [
     "PaperStorageService",
@@ -35,5 +37,8 @@ __all__ = [
     "document_processor",
     "DocumentProcessingError",
     "ProcessingResult",
+    "EmbeddingService",
+    "embedding_service",
+    "QdrantService",
+    "qdrant_service",
 ]
-

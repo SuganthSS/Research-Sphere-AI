@@ -22,6 +22,10 @@ class PaperResponse(BaseModel):
     chunk_count: Optional[int] = None
     chunked_at: Optional[datetime] = None
     chunking_error: Optional[str] = None
+    embedding_status: str = "not_started"
+    embedded_chunk_count: Optional[int] = None
+    embedded_at: Optional[datetime] = None
+    embedding_error: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -83,4 +87,12 @@ class PaperProcessingResponse(BaseModel):
     chunk_count: int
     sections_detected: List[str]
     chunked_at: datetime
+    message: str
+
+
+class PaperEmbeddingResponse(BaseModel):
+    paper_id: uuid.UUID
+    embedding_status: str
+    embedded_chunk_count: int
+    embedded_at: datetime
     message: str

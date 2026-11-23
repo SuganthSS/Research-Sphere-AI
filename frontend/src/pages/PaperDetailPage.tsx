@@ -20,8 +20,11 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  Search,
+  Database,
+  ExternalLink,
 } from 'lucide-react'
-import type { Paper, Project, PaperPage, PaperChunk } from '../types'
+import type { Paper, Project, PaperPage, PaperChunk, SearchResultItem } from '../types'
 import {
   getPaper,
   getProjects,
@@ -31,6 +34,8 @@ import {
   getPaperPages,
   processPaper,
   getPaperChunks,
+  embedPaper,
+  searchSemantic,
   ApiError,
 } from '../services/api'
 
@@ -49,7 +54,7 @@ export const PaperDetailPage: React.FC = () => {
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractionError, setExtractionError] = useState<string | null>(null)
   const [extractionSuccessMsg, setExtractionSuccessMsg] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'text' | 'metadata' | 'processing'>('text')
+  const [activeTab, setActiveTab] = useState<'text' | 'metadata' | 'processing' | 'search'>('text')
   const [selectedPageFilter, setSelectedPageFilter] = useState<number | 'all'>('all')
 
   // Processing (Chunking) State
@@ -60,6 +65,18 @@ export const PaperDetailPage: React.FC = () => {
   const [processingSuccessMsg, setProcessingSuccessMsg] = useState<string | null>(null)
   const [selectedSection, setSelectedSection] = useState<string>('all')
   const [showChunkInspector, setShowChunkInspector] = useState(false)
+
+  // Embedding & Semantic Search State
+  const [isEmbedding, setIsEmbedding] = useState(false)
+  const [embeddingError, setEmbeddingError] = useState<string | null>(null)
+  const [embeddingSuccessMsg, setEmbeddingSuccessMsg] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchScope, setSearchScope] = useState<'paper' | 'project'>('paper')
+  const [searchLimit, setSearchLimit] = useState<number>(5)
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([])
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [hasSearched, setHasSearched] = useState(false)
 
   // Actions state
   const [isDownloading, setIsDownloading] = useState(false)
@@ -197,6 +214,63 @@ export const PaperDetailPage: React.FC = () => {
     }
   }
 
+  const handleTriggerEmbedding = async () => {
+    if (!paper) return
+    setIsEmbedding(true)
+    setEmbeddingError(null)
+    setEmbeddingSuccessMsg(null)
+
+    try {
+      const result = await embedPaper(paper.id)
+      setEmbeddingSuccessMsg(result.message || 'Semantic embeddings generated and indexed in Qdrant.')
+
+      const updatedPaper = await getPaper(paper.id)
+      setPaper(updatedPaper)
+      setActiveTab('search')
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setEmbeddingError(err.message)
+      } else {
+        setEmbeddingError('Failed to generate semantic embeddings.')
+      }
+      try {
+        const refreshed = await getPaper(paper.id)
+        setPaper(refreshed)
+      } catch {
+        // ignore
+      }
+    } finally {
+      setIsEmbedding(false)
+    }
+  }
+
+  const handleRunSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!paper || !searchQuery.trim()) return
+
+    setIsSearching(true)
+    setSearchError(null)
+
+    try {
+      const resp = await searchSemantic({
+        query: searchQuery.trim(),
+        project_id: searchScope === 'project' ? paper.project_id : undefined,
+        paper_id: searchScope === 'paper' ? paper.id : undefined,
+        limit: searchLimit,
+      })
+      setSearchResults(resp.results)
+      setHasSearched(true)
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setSearchError(err.message)
+      } else {
+        setSearchError('An unexpected error occurred during semantic search.')
+      }
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -298,6 +372,9 @@ export const PaperDetailPage: React.FC = () => {
   const isChunkingDone = paper.chunking_status === 'completed'
   const isChunkingNotStarted = !paper.chunking_status || paper.chunking_status === 'not_started'
   const isChunkingFailed = paper.chunking_status === 'failed'
+  const isEmbeddingDone = paper.embedding_status === 'completed'
+  const isEmbeddingNotStarted = !paper.embedding_status || paper.embedding_status === 'not_started'
+  const isEmbeddingFailed = paper.embedding_status === 'failed'
 
   const filteredChunks =
     selectedSection === 'all'
@@ -375,6 +452,46 @@ export const PaperDetailPage: React.FC = () => {
                 >
                   <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                   <span>Extraction Failed</span>
+                </span>
+              )}
+
+              {/* Chunking Status Badge */}
+              {isChunkingDone && (
+                <span
+                  data-testid="paper-chunking-status-completed"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200"
+                >
+                  <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{paper.chunk_count ?? chunks.length} Chunks</span>
+                </span>
+              )}
+
+              {/* Embedding Status Badge */}
+              {isEmbeddingDone && (
+                <span
+                  data-testid="paper-embedding-status-completed"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-xs font-semibold border border-purple-200"
+                >
+                  <Database className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Semantic Index Ready</span>
+                </span>
+              )}
+              {isEmbedding && (
+                <span
+                  data-testid="paper-embedding-status-processing"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-xs font-semibold border border-amber-200 animate-pulse"
+                >
+                  <Loader2 className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                  <span>Generating embeddings...</span>
+                </span>
+              )}
+              {isEmbeddingFailed && !isEmbedding && (
+                <span
+                  data-testid="paper-embedding-status-failed"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold border border-rose-200"
+                >
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Embedding Failed</span>
                 </span>
               )}
             </div>
@@ -597,6 +714,29 @@ export const PaperDetailPage: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveTab('search')}
+          data-testid="tab-semantic-search"
+          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === 'search'
+              ? 'bg-[#2563EB] text-white shadow-xs'
+              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100'
+          }`}
+        >
+          <Search className="w-4 h-4" />
+          <span>Semantic Search</span>
+          {isEmbeddingDone && (
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                activeTab === 'search' ? 'bg-blue-700 text-white' : 'bg-purple-100 text-purple-700'
+              }`}
+            >
+              Ready
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('metadata')}
           className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             activeTab === 'metadata'
@@ -613,7 +753,436 @@ export const PaperDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Main Content Area (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
-          {activeTab === 'processing' ? (
+          {activeTab === 'search' ? (
+            /* ==================== SEMANTIC SEARCH TAB ==================== */
+            <div className="space-y-6" data-testid="semantic-search-container">
+              {/* Notifications */}
+              {embeddingSuccessMsg && (
+                <div
+                  data-testid="embedding-success-banner"
+                  className="p-3.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-800 text-xs flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span className="font-medium">{embeddingSuccessMsg}</span>
+                  </div>
+                  <button type="button" onClick={() => setEmbeddingSuccessMsg(null)} className="text-purple-600 hover:text-purple-800 p-1">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {(embeddingError || paper.embedding_error) && (
+                <div
+                  data-testid="embedding-error-banner"
+                  className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <div>
+                      <span className="font-semibold block">Vector Indexing Error:</span>
+                      <span>{embeddingError || paper.embedding_error}</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setEmbeddingError(null)} className="text-rose-600 hover:text-rose-800 p-1">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Preconditions */}
+              {!isChunkingDone ? (
+                <div className="bg-white rounded-2xl border border-amber-200 shadow-xs p-8 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                    <AlertCircle className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-bold text-[#0F172A]">Document Processing Required</h2>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      Semantic indexing requires document chunking to be completed first. Switch to the "Document Processing" tab to process this paper into chunks.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('processing')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors cursor-pointer"
+                  >
+                    <Cpu className="w-3.5 h-3.5" />
+                    <span>Go to Document Processing</span>
+                  </button>
+                </div>
+              ) : isEmbedding ? (
+                <div
+                  data-testid="embedding-in-progress-card"
+                  className="bg-white rounded-2xl border border-purple-200 shadow-xs p-10 text-center space-y-4"
+                >
+                  <Loader2 className="w-10 h-10 text-purple-600 animate-spin mx-auto" />
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-[#0F172A]">Generating Semantic Embeddings...</h3>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      Vectorizing {paper.chunk_count ?? chunks.length} document chunks with SentenceTransformers (all-MiniLM-L6-v2) and upserting into Qdrant collection.
+                    </p>
+                  </div>
+                  <span className="inline-block px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-semibold animate-pulse font-mono">
+                    status: indexing vectors
+                  </span>
+                </div>
+              ) : isEmbeddingNotStarted ? (
+                <div
+                  data-testid="embedding-not-started-card"
+                  className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-8 sm:p-10 text-center space-y-6"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center mx-auto shadow-xs">
+                    <Database className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2 max-w-lg mx-auto">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Semantic Index: Not Started</span>
+                    </div>
+                    <h2 className="text-xl font-bold text-[#0F172A] tracking-tight">
+                      Index Chunks into Qdrant Vector Store
+                    </h2>
+                    <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed">
+                      {paper.chunk_count ?? chunks.length} document chunks are ready. Generate dense 384-dimensional vector embeddings to enable semantic similarity search and cross-paper retrieval.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTriggerEmbedding}
+                    disabled={isEmbedding}
+                    data-testid="create-semantic-index-btn"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Database className="w-4 h-4" />
+                    <span>Create Semantic Index</span>
+                  </button>
+                  <div className="pt-4 border-t border-[#E2E8F0] grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F172A] mb-1">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Dense Vectors</span>
+                      </div>
+                      <p className="text-[11px] text-[#64748B]">384-dimensional normalized embeddings using SentenceTransformers.</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F172A] mb-1">
+                        <Database className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Qdrant Store</span>
+                      </div>
+                      <p className="text-[11px] text-[#64748B]">Fast Cosine similarity search with payload filtering and strict user isolation.</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F172A] mb-1">
+                        <Layers className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Full Traceability</span>
+                      </div>
+                      <p className="text-[11px] text-[#64748B]">Every vector maps 1:1 to original chunks, sections, and PDF page numbers.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : isEmbeddingFailed ? (
+                <div className="bg-white rounded-2xl border border-rose-200 shadow-xs p-8 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                    <AlertCircle className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-bold text-[#0F172A]">Embedding Generation Failed</h2>
+                    <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                      {embeddingError || paper.embedding_error || 'An error occurred while vectorizing chunks and upserting into Qdrant.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTriggerEmbedding}
+                    disabled={isEmbedding}
+                    data-testid="retry-embed-btn"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Retry Embedding Generation</span>
+                  </button>
+                </div>
+              ) : (
+                /* SEMANTIC SEARCH INTERFACE (When Embedding is Completed) */
+                <div className="space-y-6">
+                  {/* Search Query Control Panel */}
+                  <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                      <div>
+                        <h2 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                          <Search className="w-4 h-4 text-blue-600" />
+                          <span>Semantic Vector Retrieval</span>
+                        </h2>
+                        <p className="text-xs text-[#64748B]">
+                          Query document chunks using natural language meaning rather than exact keywords.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleTriggerEmbedding}
+                        disabled={isEmbedding}
+                        data-testid="re-embed-btn"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-medium transition-colors cursor-pointer self-start sm:self-auto"
+                        title="Re-generate embeddings and re-index vectors in Qdrant"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Re-index Vectors</span>
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleRunSearch} className="space-y-3">
+                      <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                        <div className="relative flex-1">
+                          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            data-testid="semantic-query-input"
+                            placeholder="Enter research query (e.g. neural network optimization, loss function, convergence rates)..."
+                            className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[#0F172A]"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isSearching || !searchQuery.trim()}
+                          data-testid="run-semantic-search-btn"
+                          className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isSearching ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Searching...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Search className="w-4 h-4" />
+                              <span>Search</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Search Options Bar: Scope & Result Limit */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-[#64748B]">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-[#0F172A]">Scope:</span>
+                          <button
+                            type="button"
+                            onClick={() => setSearchScope('paper')}
+                            data-testid="scope-paper-btn"
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                              searchScope === 'paper'
+                                ? 'bg-blue-100 text-blue-800 font-bold border border-blue-200'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            This Paper
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSearchScope('project')}
+                            data-testid="scope-project-btn"
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                              searchScope === 'project'
+                                ? 'bg-blue-100 text-blue-800 font-bold border border-blue-200'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            Entire Project {project ? `(${project.name})` : ''}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span>Max Chunks:</span>
+                          <select
+                            value={searchLimit}
+                            onChange={(e) => setSearchLimit(Number(e.target.value))}
+                            data-testid="search-limit-select"
+                            className="px-2 py-0.5 rounded border border-slate-200 bg-white text-xs font-medium text-[#0F172A]"
+                          >
+                            <option value={3}>Top 3</option>
+                            <option value={5}>Top 5</option>
+                            <option value={10}>Top 10</option>
+                            <option value={20}>Top 20</option>
+                          </select>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Search Error Notice */}
+                  {searchError && (
+                    <div
+                      data-testid="search-error-banner"
+                      className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{searchError}</span>
+                      </div>
+                      <button type="button" onClick={() => setSearchError(null)} className="text-rose-600 hover:text-rose-800 p-1">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Search Results Area */}
+                  {isSearching ? (
+                    <div className="p-12 text-center bg-white rounded-xl border border-[#E2E8F0] shadow-xs space-y-3">
+                      <Loader2 className="w-7 h-7 text-[#2563EB] animate-spin mx-auto" />
+                      <p className="text-xs font-medium text-[#0F172A]">Embedding query & retrieving cosine-similar chunks from Qdrant...</p>
+                    </div>
+                  ) : hasSearched ? (
+                    <div className="space-y-4" data-testid="search-results-container">
+                      <div className="flex items-center justify-between text-xs text-[#64748B] px-1">
+                        <span>
+                          Retrieved <strong className="text-[#0F172A]">{searchResults.length}</strong> relevant chunks for: <em className="text-[#0F172A]">"{searchQuery}"</em>
+                        </span>
+                        <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          Metric: Cosine Distance
+                        </span>
+                      </div>
+
+                      {searchResults.length === 0 ? (
+                        <div
+                          data-testid="no-search-results-card"
+                          className="p-8 text-center bg-white rounded-xl border border-[#E2E8F0] shadow-xs space-y-2"
+                        >
+                          <Search className="w-8 h-8 text-slate-300 mx-auto" />
+                          <h4 className="text-sm font-semibold text-[#0F172A]">No Matching Chunks Found</h4>
+                          <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                            No document chunks met the semantic similarity threshold. Try alternative scientific terminology or broaden your query.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3" data-testid="search-results-list">
+                          {searchResults.map((result, idx) => {
+                            const scorePct = Math.round(result.score * 100)
+                            const scoreBadgeColor =
+                              result.score >= 0.75
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : result.score >= 0.5
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+
+                            return (
+                              <article
+                                key={result.chunk_id || idx}
+                                data-testid={`search-result-card-${idx}`}
+                                className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-4 space-y-3 hover:border-slate-300 transition-all"
+                              >
+                                {/* Result Card Header */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      data-testid={`result-score-${idx}`}
+                                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono border ${scoreBadgeColor}`}
+                                      title={`Cosine similarity score: ${result.score}`}
+                                    >
+                                      Similarity: {result.score.toFixed(3)} ({scorePct}%)
+                                    </span>
+
+                                    <span
+                                      data-testid={`result-section-${idx}`}
+                                      className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-semibold"
+                                    >
+                                      {result.section_name || 'Unknown'}
+                                    </span>
+
+                                    <span
+                                      data-testid={`result-pages-${idx}`}
+                                      className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-mono"
+                                    >
+                                      {result.start_page === result.end_page
+                                        ? `Page ${result.start_page}`
+                                        : `Pages ${result.start_page}–${result.end_page}`}
+                                    </span>
+
+                                    <span
+                                      data-testid={`result-chunk-${idx}`}
+                                      className="text-[#64748B] text-[11px] font-mono"
+                                    >
+                                      Chunk #{result.chunk_index + 1}
+                                    </span>
+                                  </div>
+
+                                  {searchScope === 'project' && (
+                                    <span
+                                      data-testid={`result-paper-title-${idx}`}
+                                      className="text-xs font-medium text-slate-600 truncate max-w-xs"
+                                      title={result.paper_title}
+                                    >
+                                      {result.paper_title}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Text Snippet */}
+                                <div
+                                  data-testid={`result-text-${idx}`}
+                                  className="text-xs sm:text-sm text-[#0F172A] leading-relaxed bg-slate-50/70 p-3.5 rounded-lg border border-slate-100 font-sans whitespace-pre-wrap max-h-48 overflow-y-auto"
+                                >
+                                  {result.text}
+                                </div>
+
+                                {/* Footer & Traceability Navigation */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px] text-[#64748B]">
+                                  <div className="flex items-center gap-3">
+                                    <span>{result.character_count.toLocaleString()} chars</span>
+                                    {result.token_count_estimate && (
+                                      <span>~{result.token_count_estimate} tokens</span>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveTab('text')
+                                      scrollToPage(result.start_page)
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[#2563EB] hover:underline font-medium cursor-pointer"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>Jump to Page {result.start_page} in Extracted Text</span>
+                                  </button>
+                                </div>
+                              </article>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Initial prompt when user hasn't queried yet */
+                    <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 p-8 text-center space-y-3">
+                      <Search className="w-8 h-8 text-slate-300 mx-auto" />
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-semibold text-[#0F172A]">Ready for Semantic Search</h4>
+                        <p className="text-xs text-[#64748B] max-w-md mx-auto">
+                          Try searching for key concepts, experimental methodologies, or research conclusions from this paper.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-2 pt-2">
+                        {['methods and optimization', 'experimental results and evaluation', 'theoretical framework and background'].map((sample) => (
+                          <button
+                            key={sample}
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(sample)
+                            }}
+                            className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-700 hover:border-blue-300 hover:text-blue-700 text-xs font-medium transition-colors cursor-pointer"
+                          >
+                            "{sample}"
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'processing' ? (
             /* ==================== DOCUMENT PROCESSING TAB ==================== */
             <div className="space-y-6" data-testid="processing-tab-view">
               {/* Processing notification banners */}
@@ -1211,7 +1780,7 @@ export const PaperDetailPage: React.FC = () => {
           <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 space-y-3.5 shadow-xs">
             <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider flex items-center justify-between">
               <span>Pipeline Status</span>
-              <span className="text-[10px] text-blue-600 font-mono">Module 4.1</span>
+              <span className="text-[10px] text-blue-600 font-mono">Module 5.1</span>
             </h3>
 
             <div className="space-y-2.5 text-xs">
@@ -1258,9 +1827,27 @@ export const PaperDetailPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
-                <span className="font-medium">Semantic Embeddings</span>
-                <span className="font-semibold text-slate-400">Next Iteration</span>
+              <div
+                className={`flex items-center justify-between p-2 rounded-lg border ${
+                  isEmbeddingDone
+                    ? 'bg-purple-50 border-purple-200 text-purple-800'
+                    : isEmbedding
+                    ? 'bg-amber-50 border-amber-200 text-amber-800 animate-pulse'
+                    : isEmbeddingFailed
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                }`}
+              >
+                <span className="font-medium">Semantic Index (Qdrant)</span>
+                <span className="font-semibold" data-testid="pipeline-status-embedding">
+                  {isEmbedding
+                    ? 'Indexing...'
+                    : isEmbeddingDone
+                    ? `${paper.embedded_chunk_count ?? chunks.length} Vectors`
+                    : isEmbeddingFailed
+                    ? 'Failed'
+                    : 'Not Started'}
+                </span>
               </div>
             </div>
           </div>
@@ -1303,7 +1890,7 @@ export const PaperDetailPage: React.FC = () => {
               <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Future AI Synthesis</h3>
             </div>
             <p className="text-xs text-[#64748B] leading-relaxed">
-              With page text now preserved, subsequent iterations will introduce chunking, dense embeddings, and AI semantic synthesis.
+              Module 5.1 provides dense vector indexing and cosine similarity search. Subsequent iterations will connect retrieved chunks into an LLM synthesis prompt for cited answers.
             </p>
           </div>
         </div>

@@ -91,6 +91,10 @@ export interface Paper {
   chunk_count?: number | null
   chunked_at?: string | null
   chunking_error?: string | null
+  embedding_status: 'not_started' | 'processing' | 'completed' | 'failed' | string
+  embedded_chunk_count?: number | null
+  embedded_at?: string | null
+  embedding_error?: string | null
   created_at: string
   updated_at: string
 }
@@ -148,3 +152,40 @@ export interface PaperProcessingResponse {
   chunked_at: string
   message: string
 }
+
+export interface PaperEmbeddingResponse {
+  paper_id: string
+  embedding_status: string
+  embedded_chunk_count: number
+  embedded_at: string
+  message: string
+}
+
+export interface SemanticSearchRequest {
+  query: string
+  project_id?: string | null
+  paper_id?: string | null
+  limit?: number
+}
+
+export interface SearchResultItem {
+  score: number
+  paper_id: string
+  paper_title: string
+  project_id: string
+  chunk_id: string
+  chunk_index: number
+  section_name?: string | null
+  start_page: number
+  end_page: number
+  text: string
+  character_count: number
+  token_count_estimate?: number | null
+}
+
+export interface SemanticSearchResponse {
+  query: string
+  total_results: number
+  results: SearchResultItem[]
+}
+
