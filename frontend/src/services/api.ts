@@ -25,6 +25,8 @@ import type {
   PaperComparisonResponse,
   KnowledgeGraphResponse,
   Neo4jStatusResponse,
+  AnalyzeResearchGapsRequest,
+  ResearchGapAnalysisResponse,
 } from '../types'
 
 export class ApiError extends Error {
@@ -1383,6 +1385,83 @@ export async function getPaperGraph(
     throw new ApiError('Unable to fetch knowledge graph.')
   }
 }
+
+/**
+ * Generates or regenerates an evidence-grounded research gap analysis for a project.
+ */
+export async function analyzeResearchGaps(
+  projectId: string,
+  payload: AnalyzeResearchGapsRequest,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<ResearchGapAnalysisResponse> {
+  const url = `${envConfig.apiBaseUrl}/api/projects/${projectId}/gaps/analyze`
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      body: JSON.stringify(payload),
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Research gap analysis failed (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to complete research gap analysis.')
+  }
+}
+
+/**
+ * Retrieves the latest stored research gap analysis for a project.
+ */
+export async function getLatestResearchGaps(
+  projectId: string,
+  paperIds?: string,
+  token?: string | null,
+  signal?: AbortSignal
+): Promise<ResearchGapAnalysisResponse> {
+  let url = `${envConfig.apiBaseUrl}/api/projects/${projectId}/gaps/latest`
+  if (paperIds) {
+    url += `?paper_ids=${encodeURIComponent(paperIds)}`
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...resolveAuthHeader(token),
+      },
+      signal,
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+
+    if (response.status === 404) {
+      throw new ApiError('No research gap analysis found for this project.', 404)
+    }
+
+    const body = await response.json().catch(() => ({}))
+    throw new ApiError(body?.detail || `Failed to fetch research gaps (HTTP ${response.status})`, response.status)
+  } catch (err: unknown) {
+    if (err instanceof ApiError) throw err
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    throw new ApiError('Unable to fetch research gap analysis.')
+  }
+}
+
 
 
 

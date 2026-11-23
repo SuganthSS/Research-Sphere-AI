@@ -368,6 +368,62 @@ export interface Neo4jStatusResponse {
   message: string
 }
 
+export type GapType =
+  | 'Methodological Gap'
+  | 'Dataset / Evaluation Gap'
+  | 'Limitation-Derived Gap'
+  | 'Future-Work Gap'
+  | 'Cross-Paper Inconsistency / Underexplored Connection'
+
+export type ConfidenceLevel = 'High' | 'Medium' | 'Low'
+
+export interface GapCitationItem {
+  source_number: number
+  paper_id: string
+  paper_title: string
+  chunk_id: string
+  chunk_index: number
+  section_name: string
+  start_page: number
+  end_page: number
+  text: string
+}
+
+export interface PotentialResearchGap {
+  id: string
+  title: string
+  gap_type: GapType
+  potential_gap: string
+  rationale: string
+  why_it_matters: string
+  supporting_papers: string[]
+  confidence: ConfidenceLevel
+  citations: GapCitationItem[]
+}
+
+export interface AnalyzeResearchGapsRequest {
+  scope: 'selected' | 'project'
+  paper_ids?: string[] | null
+  force_regenerate?: boolean
+}
+
+export interface ResearchGapAnalysisResponse {
+  id: string
+  project_id: string
+  paper_ids: string[]
+  gaps: PotentialResearchGap[]
+  total_gaps: number
+  insufficient_evidence: boolean
+  insufficient_evidence_reason?: string | null
+  caution_notice: string
+  model_provider: string
+  model_name: string
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+
 
 
 

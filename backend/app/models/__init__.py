@@ -7,5 +7,6 @@ from app.models.paper_chunk import PaperChunk
 from app.models.paper_summary import PaperSummary
 from app.models.paper_comparison import PaperComparison
 from app.models.paper_graph import PaperGraph
+from app.models.research_gap import ResearchGapAnalysis
 
-__all__ = ["User", "Project", "Paper", "PaperPage", "PaperChunk", "PaperSummary", "PaperComparison", "PaperGraph"]
+__all__ = ["User", "Project", "Paper", "PaperPage", "PaperChunk", "PaperSummary", "PaperComparison", "PaperGraph", "ResearchGapAnalysis"]

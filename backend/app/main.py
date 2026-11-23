@@ -9,6 +9,7 @@ from app.api.routes.search import router as search_router
 from app.api.routes.assistant import router as assistant_router
 from app.api.routes.comparisons import router as comparisons_router
 from app.api.routes.graphs import router as graphs_router
+from app.api.routes.gaps import router as gaps_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -41,6 +42,7 @@ app.include_router(search_router, prefix="/api", tags=["Search"])
 app.include_router(assistant_router, prefix="/api", tags=["Assistant"])
 app.include_router(comparisons_router, prefix="/api", tags=["Comparisons"])
 app.include_router(graphs_router, prefix="/api", tags=["Graphs"])
+app.include_router(gaps_router, prefix="/api", tags=["Research Gaps"])
 
 
 @app.get("/", tags=["Root"])
