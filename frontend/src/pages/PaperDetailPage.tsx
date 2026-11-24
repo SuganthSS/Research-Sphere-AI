@@ -729,15 +729,15 @@ export const PaperDetailPage: React.FC = () => {
       : pages.filter((p) => p.page_number === selectedPageFilter)
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1560px] mx-auto w-full space-y-6" data-testid="paper-detail-container">
+    <div className="p-6 lg:p-8 max-w-[1560px] mx-auto w-full space-y-6 lg:space-y-8" data-testid="paper-detail-container">
       {/* ==================== TOP DOCUMENT HEADER ==================== */}
-      <section className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+      <section className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 min-w-0">
           {/* Back to Library Link */}
           <Link
             to="/papers"
             data-testid="back-to-library-link"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#0F172A] transition-colors text-xs font-semibold shrink-0"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-900 transition-colors text-xs font-semibold shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Library</span>

@@ -206,15 +206,15 @@ export const ComparePage: React.FC = () => {
   ]
 
   return (
-    <div className="space-y-6" data-testid="compare-page-container">
+    <div className="p-6 lg:p-8 max-w-[1560px] mx-auto w-full space-y-6 lg:space-y-8" data-testid="compare-page-container">
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E2E8F0]">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight flex items-center gap-2">
-            <GitCompare className="w-6 h-6 text-[#2563EB]" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <GitCompare className="w-6 h-6 text-blue-600" />
             <span>Compare Research Papers</span>
           </h1>
-          <p className="text-xs sm:text-sm text-[#64748B] mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Perform multi-paper comparative analysis across methodologies, benchmarks, and claims.
           </p>
         </div>
@@ -224,7 +224,7 @@ export const ComparePage: React.FC = () => {
             type="button"
             onClick={() => setShowSelectionView(true)}
             data-testid="change-selection-btn"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Change Selected Papers ({selectedPaperIds.length})</span>

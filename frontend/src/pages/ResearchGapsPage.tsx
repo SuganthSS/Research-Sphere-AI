@@ -9,7 +9,6 @@ import {
   ExternalLink,
   ShieldAlert,
   Sparkles,
-  BookOpen,
   CheckCircle2,
   RefreshCw,
   AlertTriangle,
@@ -186,19 +185,19 @@ export const ResearchGapsPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1560px] mx-auto w-full space-y-6" data-testid="research-gaps-container">
+    <div className="p-6 lg:p-8 max-w-[1560px] mx-auto w-full space-y-6 lg:space-y-8" data-testid="research-gaps-container">
       {/* ==================== PAGE HEADER ==================== */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-100/80 flex items-center justify-center text-amber-600 shadow-2xs">
               <Compass className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                 Potential Research Gap Identification
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
                 Evidence-supported research gaps inferred from limitations, future work, and cross-paper synthesis.
               </p>
             </div>
@@ -212,7 +211,7 @@ export const ResearchGapsPage: React.FC = () => {
             onClick={() => handleAnalyze(false)}
             disabled={!selectedProjectId || !hasIndexedPapers || isAnalyzing}
             data-testid="analyze-gaps-btn"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs sm:text-sm font-semibold shadow-2xs transition-all cursor-pointer disabled:cursor-not-allowed"
           >
             {isAnalyzing ? (
               <>
@@ -237,7 +236,7 @@ export const ResearchGapsPage: React.FC = () => {
         <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <p className="font-bold text-amber-950 flex items-center gap-1.5">
-            <span>Scientific Safety & Scoping Notice</span>
+            <span>Scientific Safety &amp; Scoping Notice</span>
           </p>
           <p className="text-xs text-amber-800/90 leading-relaxed">
             Potential gaps are inferred from the selected literature and should be validated against the broader scientific literature before being treated as established research gaps.
@@ -246,12 +245,12 @@ export const ResearchGapsPage: React.FC = () => {
       </div>
 
       {/* ==================== CONTROL & CONFIGURATION CARD ==================== */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-6 space-y-5">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* 1. Project Selector */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-              <Folder className="w-3.5 h-3.5 text-[#2563EB]" />
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Folder className="w-3.5 h-3.5 text-blue-600" />
               <span>Research Project</span>
             </label>
             <select
@@ -259,7 +258,7 @@ export const ResearchGapsPage: React.FC = () => {
               onChange={(e) => setSelectedProjectId(e.target.value)}
               data-testid="gaps-project-select"
               disabled={isLoadingProjects || isAnalyzing}
-              className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] bg-white text-xs sm:text-sm font-medium text-[#0F172A] focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] disabled:bg-slate-50 disabled:opacity-60 cursor-pointer"
+              className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:bg-slate-50 disabled:opacity-60 cursor-pointer"
             >
               {projects.length === 0 && <option value="">No projects available</option>}
               {projects.map((proj) => (
@@ -272,18 +271,18 @@ export const ResearchGapsPage: React.FC = () => {
 
           {/* 2. Scope Selector */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-[#2563EB]" />
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
               <span>Corpus Scope</span>
             </label>
-            <div className="grid grid-cols-2 gap-2 h-10 p-1 bg-slate-100 rounded-lg border border-slate-200">
+            <div className="grid grid-cols-2 gap-1.5 h-9 p-1 bg-slate-100/90 rounded-lg border border-slate-200/80">
               <button
                 type="button"
                 onClick={() => setScope('project')}
                 data-testid="gaps-scope-project-btn"
                 disabled={isAnalyzing}
                 className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${scope === 'project'
-                  ? 'bg-white text-[#2563EB] shadow-xs'
+                  ? 'bg-white text-blue-600 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
@@ -297,12 +296,12 @@ export const ResearchGapsPage: React.FC = () => {
                 data-testid="gaps-scope-selected-btn"
                 disabled={isAnalyzing}
                 className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${scope === 'selected'
-                  ? 'bg-white text-[#2563EB] shadow-xs'
+                  ? 'bg-white text-blue-600 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Selected Papers</span>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Selected Papers ({selectedPaperIds.length})</span>
               </button>
             </div>
           </div>
@@ -399,15 +398,15 @@ export const ResearchGapsPage: React.FC = () => {
       {!isAnalyzing && analysis && (
         <div className="space-y-5" data-testid="gaps-results-container">
           {/* Header Summary */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-[#0F172A] flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
                 <span>Discovered Potential Research Gaps</span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80 font-semibold">
                   {analysis.total_gaps} {analysis.total_gaps === 1 ? 'Gap' : 'Gaps'}
                 </span>
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Inferred from {analysis.paper_ids.length} research {analysis.paper_ids.length === 1 ? 'paper' : 'papers'} · Revision v{analysis.version}
               </p>
             </div>
@@ -416,7 +415,7 @@ export const ResearchGapsPage: React.FC = () => {
               type="button"
               onClick={() => handleAnalyze(true)}
               disabled={isAnalyzing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition cursor-pointer self-start sm:self-auto"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition cursor-pointer self-start sm:self-auto"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Regenerate Analysis</span>
@@ -427,9 +426,9 @@ export const ResearchGapsPage: React.FC = () => {
           {analysis.insufficient_evidence && (
             <div
               data-testid="gaps-insufficient-evidence"
-              className="p-6 rounded-xl border border-slate-200 bg-white text-center space-y-3"
+              className="p-6 rounded-xl border border-slate-200/90 bg-white text-center space-y-3 shadow-2xs"
             >
-              <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600">
+              <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200/80 flex items-center justify-center mx-auto text-amber-600">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="space-y-1">
@@ -448,7 +447,7 @@ export const ResearchGapsPage: React.FC = () => {
               <div
                 key={gap.id || idx}
                 data-testid={`potential-gap-card-${idx}`}
-                className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-6 space-y-4 transition-all hover:border-slate-300"
+                className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-6 space-y-4 transition-all hover:border-slate-300"
               >
                 {/* Card Header: Type Badge & Confidence */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-slate-100">
@@ -466,7 +465,7 @@ export const ResearchGapsPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <h3 className="text-base sm:text-lg font-bold text-[#0F172A] leading-snug">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
                       {gap.title}
                     </h3>
                   </div>
@@ -557,12 +556,12 @@ export const ResearchGapsPage: React.FC = () => {
 
       {/* Initial Empty State */}
       {!analysis && !isAnalyzing && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center max-w-xl mx-auto space-y-4 my-8">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center max-w-xl mx-auto space-y-4 my-8 shadow-2xs">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-center mx-auto text-amber-600 shadow-2xs">
             <Compass className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-[#0F172A]">Discover Potential Research Gaps</h3>
+            <h3 className="text-base font-bold text-slate-900">Discover Potential Research Gaps</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
               Select your literature corpus and click <strong>Analyze Research Gaps</strong> to identify evidence-supported methodology constraints, unaddressed limitations, and future directions.
             </p>

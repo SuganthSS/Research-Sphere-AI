@@ -92,19 +92,19 @@ export const ResearcherDiscoveryPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1560px] mx-auto w-full space-y-6" data-testid="researcher-discovery-container">
+    <div className="p-6 lg:p-8 max-w-[1560px] mx-auto w-full space-y-6 lg:space-y-8" data-testid="researcher-discovery-container">
       {/* ==================== PAGE HEADER ==================== */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                 Researcher Discovery & Collaboration
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
                 Identify authors in your ResearchSphere corpus and discover potential collaboration alignments.
               </p>
             </div>
@@ -116,7 +116,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
           onClick={fetchResearchers}
           disabled={isLoadingResearchers}
           data-testid="refresh-researchers-btn"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold shadow-2xs transition cursor-pointer self-start md:self-auto shrink-0"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold shadow-2xs transition cursor-pointer self-start md:self-auto shrink-0"
         >
           <RefreshCw className={`w-4 h-4 ${isLoadingResearchers ? 'animate-spin text-indigo-600' : ''}`} />
           <span>Refresh Discovery</span>
@@ -140,10 +140,10 @@ export const ResearcherDiscoveryPage: React.FC = () => {
       </div>
 
       {/* ==================== PROJECT FILTER CARD ==================== */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5 shrink-0">
-            <Folder className="w-3.5 h-3.5 text-[#2563EB]" />
+            <Folder className="w-3.5 h-3.5 text-blue-600" />
             <span>Filter by Project:</span>
           </label>
           <select
@@ -151,7 +151,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
             onChange={(e) => setSelectedProjectId(e.target.value)}
             data-testid="researchers-project-select"
             disabled={isLoadingProjects || isLoadingResearchers}
-            className="h-9 px-3 rounded-lg border border-[#E2E8F0] bg-white text-xs sm:text-sm font-medium text-[#0F172A] focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] disabled:bg-slate-50 cursor-pointer min-w-[220px]"
+            className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:bg-slate-50 cursor-pointer min-w-[220px]"
           >
             <option value="">All Projects in Corpus</option>
             {projects.map((proj) => (
@@ -164,7 +164,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
 
         {discoveryData && (
           <div className="text-xs text-slate-500 font-medium">
-            <span>Discovered <strong>{discoveryData.total_researchers}</strong> authors in active corpus</span>
+            <span>Discovered <strong className="text-slate-800">{discoveryData.total_researchers}</strong> authors in active corpus</span>
           </div>
         )}
       </div>
@@ -226,17 +226,17 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                   <div
                     key={res.author_id}
                     data-testid={`researcher-card-${idx}`}
-                    className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 flex flex-col justify-between space-y-4 hover:border-indigo-300 transition-all"
+                    className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 flex flex-col justify-between space-y-4 hover:border-slate-300 transition-all"
                   >
                     <div className="space-y-3.5">
                       {/* Researcher Header */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-2xs shrink-0">
                             {getInitials(res.name)}
                           </div>
                           <div>
-                            <h3 className="text-base font-bold text-[#0F172A] leading-tight">
+                            <h3 className="text-base font-bold text-slate-900 leading-tight">
                               {res.name}
                             </h3>
                             <span className="text-xs text-slate-500">
@@ -248,7 +248,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                         {/* Match Label */}
                         <div
                           data-testid={`researcher-match-label-${idx}`}
-                          className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold font-mono shrink-0"
+                          className="px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold font-mono shrink-0"
                         >
                           {res.match_label}
                         </div>
@@ -258,11 +258,11 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-semibold text-slate-600">Domain Match:</span>
-                          <span className="font-bold text-indigo-600 font-mono">{matchPct}%</span>
+                          <span className="font-bold text-blue-600 font-mono">{matchPct}%</span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                           <div
-                            className="bg-indigo-600 h-1.5 rounded-full"
+                            className="bg-blue-600 h-1.5 rounded-full"
                             style={{ width: `${matchPct}%` }}
                           />
                         </div>
@@ -271,7 +271,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                       {/* Collaboration Rationale */}
                       <div className="bg-slate-50/90 p-3 rounded-lg border border-slate-100 text-xs text-slate-700 leading-relaxed font-sans">
                         <span className="font-bold text-slate-900 block mb-1 flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-indigo-600" />
+                          <Sparkles className="w-3 h-3 text-blue-600" />
                           <span>Collaboration Alignment:</span>
                         </span>
                         {res.collaboration_explanation}
@@ -281,11 +281,11 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                       <div className="space-y-2">
                         {res.topics.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1">
-                            <Tag className="w-3 h-3 text-indigo-500 shrink-0" />
+                            <Tag className="w-3 h-3 text-blue-500 shrink-0" />
                             {res.topics.slice(0, 3).map((t, ti) => (
                               <span
                                 key={ti}
-                                className="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-50 text-indigo-800 border border-indigo-200/80 truncate max-w-[160px]"
+                                className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-800 border border-blue-200/80 truncate max-w-[160px]"
                               >
                                 {t}
                               </span>
@@ -295,11 +295,11 @@ export const ResearcherDiscoveryPage: React.FC = () => {
 
                         {res.methods.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1">
-                            <Wrench className="w-3 h-3 text-emerald-500 shrink-0" />
+                            <Wrench className="w-3 h-3 text-teal-600 shrink-0" />
                             {res.methods.slice(0, 2).map((m, mi) => (
                               <span
                                 key={mi}
-                                className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/80 truncate max-w-[160px]"
+                                className="px-2 py-0.5 rounded text-[11px] font-medium bg-teal-50 text-teal-800 border border-teal-200/80 truncate max-w-[160px]"
                               >
                                 {m}
                               </span>
@@ -315,7 +315,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                         type="button"
                         onClick={() => setSelectedProfile(res)}
                         data-testid={`view-researcher-profile-${idx}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 text-xs font-semibold transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-semibold transition cursor-pointer"
                       >
                         <UserCheck className="w-3.5 h-3.5" />
                         <span>View Profile Details</span>
@@ -333,44 +333,44 @@ export const ResearcherDiscoveryPage: React.FC = () => {
       {selectedProfile && (
         <div
           data-testid="researcher-modal"
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedProfile(null)}
         >
           <div
-            className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl border border-slate-200/90 shadow-2xl max-w-xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="flex items-start justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-indigo-600 text-white font-bold text-base flex items-center justify-center shadow-xs">
+                <div className="w-12 h-12 rounded-full bg-blue-600 text-white font-bold text-base flex items-center justify-center shadow-2xs">
                   {getInitials(selectedProfile.name)}
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-[#0F172A]">{selectedProfile.name}</h2>
-                  <span className="text-xs text-indigo-600 font-semibold">{selectedProfile.match_label}</span>
+                  <h2 className="text-lg font-bold text-slate-900">{selectedProfile.name}</h2>
+                  <span className="text-xs text-blue-600 font-semibold">{selectedProfile.match_label}</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setSelectedProfile(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Collaboration Explanation */}
-            <div className="bg-indigo-50/60 p-4 rounded-xl border border-indigo-100 text-xs text-indigo-950 leading-relaxed">
-              <span className="font-bold block mb-1">Collaboration Alignment Rationale:</span>
+            <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100 text-xs text-slate-800 leading-relaxed">
+              <span className="font-bold text-slate-900 block mb-1">Collaboration Alignment Rationale:</span>
               <p>{selectedProfile.collaboration_explanation}</p>
             </div>
 
             {/* Authored Papers in Corpus */}
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-[#2563EB]" />
+                <BookOpen className="w-3.5 h-3.5 text-blue-600" />
                 <span>Publications in Your Corpus ({selectedProfile.papers.length}):</span>
               </h4>
               <div className="space-y-1.5">
@@ -393,7 +393,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Research Topics</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedProfile.topics.map((t, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 text-[11px] font-medium border border-indigo-200">
+                    <span key={idx} className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 text-[11px] font-medium border border-blue-200">
                       {t}
                     </span>
                   ))}
@@ -404,7 +404,7 @@ export const ResearcherDiscoveryPage: React.FC = () => {
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Methodologies</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedProfile.methods.map((m, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[11px] font-medium border border-emerald-200">
+                    <span key={idx} className="px-2 py-0.5 rounded bg-teal-50 text-teal-800 text-[11px] font-medium border border-teal-200">
                       {m}
                     </span>
                   ))}

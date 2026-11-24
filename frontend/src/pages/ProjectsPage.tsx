@@ -178,14 +178,14 @@ export const ProjectsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="p-6 lg:p-8 max-w-[1560px] mx-auto w-full space-y-6 lg:space-y-8" data-testid="projects-page-container">
       {/* ==================== PAGE HEADER ==================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#0F172A] tracking-tight leading-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Research Projects
           </h1>
-          <p className="text-sm text-[#64748B] mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Organize your research initiatives, literature collections, and AI-powered analysis.
           </p>
         </div>
@@ -195,7 +195,7 @@ export const ProjectsPage: React.FC = () => {
             type="button"
             data-testid="create-project-btn"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 bg-[#2563EB] hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-2xs transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>+ New Project</span>

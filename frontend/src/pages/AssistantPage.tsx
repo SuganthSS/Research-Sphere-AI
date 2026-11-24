@@ -236,19 +236,19 @@ export const AssistantPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1560px] mx-auto w-full space-y-6" data-testid="assistant-container">
+    <div className="p-6 lg:p-8 max-w-[1560px] mx-auto w-full space-y-6 lg:space-y-8" data-testid="assistant-container">
       {/* ==================== PAGE HEADER ==================== */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                 AI Research Assistant
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
                 Ask scientific questions strictly grounded in your indexed literature with verifiable citations.
               </p>
             </div>
@@ -257,7 +257,7 @@ export const AssistantPage: React.FC = () => {
 
         {/* LLM Status Pill */}
         <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-700">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200/90 bg-slate-50/80 text-xs text-slate-700 shadow-2xs">
             <span
               className={`w-2 h-2 rounded-full ${assistantStatus?.configured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
                 }`}
@@ -275,7 +275,7 @@ export const AssistantPage: React.FC = () => {
             type="button"
             onClick={fetchStatus}
             title="Refresh LLM provider status"
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+            className="p-1.5 rounded-lg border border-slate-200/90 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
@@ -283,12 +283,12 @@ export const AssistantPage: React.FC = () => {
       </div>
 
       {/* ==================== CONTROL & CONFIGURATION CARD ==================== */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs p-6 space-y-5">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-5 sm:p-6 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* 1. Project Selector */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-              <Folder className="w-3.5 h-3.5 text-[#2563EB]" />
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Folder className="w-3.5 h-3.5 text-blue-600" />
               <span>Research Project</span>
             </label>
             <select
@@ -299,7 +299,7 @@ export const AssistantPage: React.FC = () => {
               }}
               data-testid="assistant-project-select"
               disabled={isLoadingProjects || isAsking}
-              className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] bg-white text-xs sm:text-sm font-medium text-[#0F172A] focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] disabled:bg-slate-50 disabled:opacity-60 cursor-pointer"
+              className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:bg-slate-50 disabled:opacity-60 cursor-pointer"
             >
               {projects.length === 0 && <option value="">No projects available</option>}
               {projects.map((proj) => (
@@ -312,11 +312,11 @@ export const AssistantPage: React.FC = () => {
 
           {/* 2. Scope Selector */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-[#2563EB]" />
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
               <span>Literature Scope</span>
             </label>
-            <div className="grid grid-cols-2 gap-2 h-10 p-1 bg-slate-100 rounded-lg border border-slate-200">
+            <div className="grid grid-cols-2 gap-1.5 h-9 p-1 bg-slate-100/90 rounded-lg border border-slate-200/80">
               <button
                 type="button"
                 onClick={() => {
@@ -326,7 +326,7 @@ export const AssistantPage: React.FC = () => {
                 data-testid="assistant-scope-paper-btn"
                 disabled={isAsking}
                 className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${scope === 'paper'
-                  ? 'bg-white text-[#2563EB] shadow-xs'
+                  ? 'bg-white text-blue-600 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
@@ -343,7 +343,7 @@ export const AssistantPage: React.FC = () => {
                 data-testid="assistant-scope-project-btn"
                 disabled={isAsking}
                 className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${scope === 'project'
-                  ? 'bg-white text-[#2563EB] shadow-xs'
+                  ? 'bg-white text-blue-600 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
@@ -379,7 +379,7 @@ export const AssistantPage: React.FC = () => {
               }}
               data-testid="assistant-paper-select"
               disabled={scope !== 'paper' || isLoadingPapers || isAsking || papers.length === 0}
-              className="w-full h-10 px-3 rounded-lg border border-[#E2E8F0] bg-white text-xs sm:text-sm font-medium text-[#0F172A] focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] disabled:bg-slate-50 disabled:opacity-60 cursor-pointer"
+              className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:bg-slate-50 disabled:opacity-60 cursor-pointer"
             >
               {papers.length === 0 && <option value="">No papers in project</option>}
               {papers.map((p) => (
@@ -392,16 +392,16 @@ export const AssistantPage: React.FC = () => {
 
           {/* 4. Retrieval Mode Selector */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Network className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Retrieval Mode</span>
               </span>
-              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
                 {retrievalMode === 'graph' ? 'Hybrid' : 'Vector'}
               </span>
             </label>
-            <div className="grid grid-cols-2 gap-2 h-10 p-1 bg-slate-100 rounded-lg border border-slate-200">
+            <div className="grid grid-cols-2 gap-1.5 h-9 p-1 bg-slate-100/90 rounded-lg border border-slate-200/80">
               <button
                 type="button"
                 onClick={() => {
@@ -411,7 +411,7 @@ export const AssistantPage: React.FC = () => {
                 data-testid="assistant-mode-standard-btn"
                 disabled={isAsking}
                 className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${retrievalMode === 'standard'
-                  ? 'bg-white text-slate-800 shadow-xs'
+                  ? 'bg-white text-slate-800 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
@@ -428,7 +428,7 @@ export const AssistantPage: React.FC = () => {
                 data-testid="assistant-mode-graph-btn"
                 disabled={isAsking}
                 className={`flex items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${retrievalMode === 'graph'
-                  ? 'bg-white text-indigo-700 shadow-xs'
+                  ? 'bg-white text-indigo-700 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
@@ -443,7 +443,7 @@ export const AssistantPage: React.FC = () => {
         {scope === 'paper' && selectedPaper && !isSelectedPaperIndexed && (
           <div
             data-testid="assistant-unindexed-warning"
-            className="p-3.5 rounded-lg border border-amber-200 bg-amber-50/70 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/70 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
           >
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -453,7 +453,7 @@ export const AssistantPage: React.FC = () => {
             </div>
             <Link
               to={`/papers/${selectedPaper.id}?tab=semantic-search`}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition cursor-pointer self-start sm:self-auto shrink-0 shadow-xs"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-2xs transition-all cursor-pointer self-start sm:self-auto shrink-0"
             >
               <span>Create Semantic Index</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -464,11 +464,11 @@ export const AssistantPage: React.FC = () => {
         {scope === 'project' && !hasIndexedPapersInProject && papers.length > 0 && (
           <div
             data-testid="assistant-project-unindexed-warning"
-            className="p-3.5 rounded-lg border border-amber-200 bg-amber-50/70 text-xs text-amber-900 flex items-center gap-2"
+            className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/70 text-xs text-amber-900 flex items-center gap-2"
           >
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              None of the papers in this project have been semantically indexed yet. Please create a semantic index on at least one paper to enable project-wide Q&A.
+              None of the papers in this project have been semantically indexed yet. Please create a semantic index on at least one paper to enable project-wide Q&amp;A.
             </span>
           </div>
         )}
@@ -483,7 +483,7 @@ export const AssistantPage: React.FC = () => {
               placeholder="Ask a scientific research question (e.g. What methodology or architecture does this study use?)..."
               disabled={isAsking}
               data-testid="assistant-question-input"
-              className="w-full p-3.5 pr-28 rounded-xl border border-[#E2E8F0] bg-white text-sm text-[#0F172A] placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#2563EB] disabled:bg-slate-50 disabled:opacity-60 resize-none shadow-xs"
+              className="w-full p-4 pr-36 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-600/15 focus:border-blue-600 disabled:bg-slate-50 disabled:opacity-60 resize-none shadow-2xs transition-all"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -492,12 +492,12 @@ export const AssistantPage: React.FC = () => {
               }}
             />
 
-            <div className="absolute right-3 bottom-3 flex items-center gap-2">
+            <div className="absolute right-3.5 bottom-3.5 flex items-center gap-2">
               <button
                 type="submit"
                 disabled={!canAsk}
                 data-testid="assistant-ask-btn"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer disabled:cursor-not-allowed"
               >
                 {isAsking ? (
                   <>
@@ -526,7 +526,7 @@ export const AssistantPage: React.FC = () => {
                 type="button"
                 onClick={() => setQuestion(s)}
                 disabled={isAsking}
-                className="text-[11px] text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+                className="text-[11px] text-slate-600 bg-slate-100/90 hover:bg-slate-200/80 hover:text-slate-900 px-3 py-1 rounded-full border border-slate-200/70 transition-all cursor-pointer"
               >
                 {s}
               </button>

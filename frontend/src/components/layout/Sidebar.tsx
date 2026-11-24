@@ -95,18 +95,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       >
         <div className="flex flex-col flex-1 overflow-y-auto">
           {/* App Brand Logo Header */}
-          <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800/80">
-            <NavLink to="/" className="flex items-center gap-2.5" onClick={onClose}>
-              <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white shadow-sm font-semibold text-base tracking-tight">
+          <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800/90">
+            <NavLink to="/" className="flex items-center gap-2.5 group" onClick={onClose}>
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs font-bold text-sm tracking-tight ring-1 ring-blue-400/30 group-hover:bg-blue-500 transition-colors">
                 RS
               </div>
-              <span className="font-semibold text-[16px] text-white tracking-tight">
+              <span className="font-semibold text-[15px] text-white tracking-tight">
                 ResearchSphere
               </span>
             </NavLink>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-slate-800 text-teal-400 border border-teal-500/20">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800/90 text-teal-300 border border-teal-500/30">
                 v2.4
               </span>
               <button
@@ -124,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <nav className="flex-1 px-3 py-4 space-y-6">
             {navigationGroups.map((group) => (
               <div key={group.group} className="space-y-1">
-                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400/80">
                   {group.group}
                 </p>
                 {group.items.map((item) => {
@@ -136,10 +136,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                       onClick={onClose}
                       end={item.path === '/'}
                       className={({ isActive }) =>
-                        `flex items-center justify-between px-3 py-2 rounded-lg text-[14px] transition-colors ${
+                        `flex items-center justify-between px-3 py-2 rounded-lg text-[13px] transition-all duration-150 ${
                           isActive
-                            ? 'bg-[#2563EB] text-white font-medium shadow-sm'
-                            : 'text-slate-300 hover:bg-slate-800 hover:text-white font-normal'
+                            ? 'bg-blue-600 text-white font-medium shadow-xs shadow-blue-900/40 ring-1 ring-blue-500/40'
+                            : 'text-slate-300 hover:bg-slate-800/80 hover:text-white font-normal'
                         }`
                       }
                     >
@@ -148,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                         <span>{item.label}</span>
                       </div>
                       {item.indicator && (
-                        <span className="w-2 h-2 rounded-full bg-[#0D9488]" />
+                        <span className="w-2 h-2 rounded-full bg-teal-400 ring-2 ring-slate-900" />
                       )}
                     </NavLink>
                   )
@@ -159,21 +159,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* User Profile Footer */}
-        <div className="p-3 border-t border-slate-800 flex flex-col gap-2">
+        <div className="p-3 border-t border-slate-800/90 flex flex-col gap-2">
           <NavLink
             to="/settings"
             onClick={onClose}
-            className="flex items-center justify-between p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800 transition-colors cursor-pointer group"
+            className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/90 hover:bg-slate-800/80 hover:border-slate-700/80 transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-slate-700 text-teal-300 flex items-center justify-center font-medium text-xs shrink-0 ring-1 ring-slate-600">
+              <div className="w-8 h-8 rounded-full bg-slate-800 text-teal-300 flex items-center justify-center font-semibold text-xs shrink-0 ring-1 ring-slate-700">
                 {initials}
               </div>
               <div className="truncate">
                 <p className="text-[13px] font-medium text-white truncate leading-tight group-hover:text-teal-200 transition-colors">
                   {user?.name || 'Dr. Elena Rostova'}
                 </p>
-                <p className="text-[11px] text-slate-400 truncate">
+                <p className="text-[11px] text-slate-400 truncate mt-0.5">
                   {user?.email || 'researcher@institution.edu'}
                 </p>
               </div>
