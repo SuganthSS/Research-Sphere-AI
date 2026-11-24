@@ -70,6 +70,31 @@ class Neo4jService:
         """Returns boolean indicating if Neo4j is connected and operational."""
         return self.get_status().status == "Connected"
 
+    def delete_paper_subgraph(self, paper_id: str) -> bool:
+        """Deletes the Paper node and all directly attached relationships for this paper.
+
+        Preserves shared entities (Authors, Topics, Methods) connected to other papers.
+        """
+        if not self.is_available():
+            logger.info("Skipping Neo4j paper deletion: Neo4j is not connected.")
+            return False
+
+        driver = self._get_driver()
+        if not driver:
+            return False
+
+        try:
+            with driver.session() as session:
+                session.run(
+                    "MATCH (p:Paper {id: $paper_id}) DETACH DELETE p",
+                    paper_id=str(paper_id),
+                )
+            logger.info("Successfully deleted Neo4j subgraph for paper %s", paper_id)
+            return True
+        except Exception as exc:
+            logger.warning("Failed to delete Neo4j subgraph for paper %s: %s", paper_id, exc)
+            return False
+
     def upsert_paper_graph(
         self,
         paper_id: str,

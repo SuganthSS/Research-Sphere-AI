@@ -723,8 +723,9 @@ export async function deletePaper(
 ): Promise<void> {
   const url = `${envConfig.apiBaseUrl}/api/papers/${paperId}`
 
+  let response: Response
   try {
-    const response = await fetch(url, {
+    response = await fetch(url, {
       method: 'DELETE',
       headers: {
         Accept: 'application/json',
@@ -732,25 +733,34 @@ export async function deletePaper(
       },
       signal,
     })
-
-    if (response.status === 204) {
-      return
-    }
-
-    if (response.status === 404) {
-      throw new ApiError('Paper not found.', 404)
-    }
-
-    if (response.status === 401) {
-      throw new ApiError('Authentication required to delete paper.', 401)
-    }
-
-    throw new ApiError(`Failed to delete paper (HTTP ${response.status})`, response.status)
   } catch (err: unknown) {
-    if (err instanceof ApiError) throw err
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw new ApiError('Unable to reach backend API to delete paper.')
   }
+
+  if (response.status === 204) {
+    return
+  }
+
+  let detail: string | undefined
+  try {
+    const data = await response.json()
+    if (data && typeof data === 'object' && typeof data.detail === 'string') {
+      detail = data.detail
+    }
+  } catch {
+    // response was not JSON
+  }
+
+  if (response.status === 404) {
+    throw new ApiError(detail || 'Paper not found.', 404)
+  }
+
+  if (response.status === 401) {
+    throw new ApiError(detail || 'Authentication required to delete paper.', 401)
+  }
+
+  throw new ApiError(detail || `Failed to delete paper (HTTP ${response.status})`, response.status)
 }
 
 /**

@@ -1,4 +1,5 @@
 """Paper API endpoints for document ingestion, retrieval, page extraction, and management."""
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models.paper import Paper
 from app.models.paper_page import PaperPage
+from app.models.paper_graph import PaperGraph
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.paper import (
@@ -32,12 +34,15 @@ from app.services.pdf_extraction import pdf_extractor, PDFExtractionError
 from app.services.document_processing import document_processor, DocumentProcessingError
 from app.services.embedding import embedding_service
 from app.services.qdrant_service import qdrant_service
+from app.services.neo4j_service import neo4j_service
 from app.services.paper_summary_service import (
     paper_summary_service,
     PaperPreconditionError,
     PaperSummaryError,
 )
 from app.models.paper_chunk import PaperChunk
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -445,12 +450,30 @@ def delete_paper(
         )
 
     # 1. Delete physical stored file
-    paper_storage.delete(paper.stored_filename)
+    try:
+        paper_storage.delete(paper.stored_filename)
+    except Exception as exc:
+        logger.warning("Failed to delete physical file %s: %s", paper.stored_filename, exc)
 
     # 2. Delete vectors from Qdrant
-    qdrant_service.delete_paper_vectors(paper.id)
+    try:
+        qdrant_service.delete_paper_vectors(paper.id)
+    except Exception as exc:
+        logger.warning("Failed to delete Qdrant vectors for paper %s: %s", paper.id, exc)
 
-    # 3. Delete database record (cascades automatically to PaperPage rows via ondelete="CASCADE")
+    # 3. Delete paper subgraph from Neo4j
+    try:
+        neo4j_service.delete_paper_subgraph(str(paper.id))
+    except Exception as exc:
+        logger.warning("Failed to delete Neo4j subgraph for paper %s: %s", paper.id, exc)
+
+    # 4. Explicitly delete paper_graphs record
+    try:
+        db.execute(delete(PaperGraph).where(PaperGraph.paper_id == paper.id))
+    except Exception as exc:
+        logger.warning("Failed to explicitly delete PaperGraph for paper %s: %s", paper.id, exc)
+
+    # 5. Delete database record (cascades automatically to PaperPage, PaperChunk, PaperSummary via relationship cascade and FK CASCADE)
     db.delete(paper)
     db.commit()
 

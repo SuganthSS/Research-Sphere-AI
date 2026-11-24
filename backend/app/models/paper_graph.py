@@ -34,4 +34,4 @@ class PaperGraph(Base):
         nullable=False,
     )
 
-    paper = relationship("Paper", backref="knowledge_graph")
+    paper = relationship("Paper", back_populates="knowledge_graph")

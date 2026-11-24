@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.paper_page import PaperPage
     from app.models.paper_chunk import PaperChunk
     from app.models.paper_summary import PaperSummary
+    from app.models.paper_graph import PaperGraph
 
 
 class Paper(Base):
@@ -208,6 +209,12 @@ class Paper(Base):
     )
     summary: Mapped["PaperSummary | None"] = relationship(
         "PaperSummary",
+        back_populates="paper",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    knowledge_graph: Mapped["PaperGraph | None"] = relationship(
+        "PaperGraph",
         back_populates="paper",
         uselist=False,
         cascade="all, delete-orphan",
